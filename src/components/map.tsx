@@ -3,24 +3,53 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import type { GeoJSONSource, Map as MlMap, RasterTileSource } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { severityColor, severityLabel, typeIcon, typeLabel } from '@/lib/labels';
+import { severityColor, severityLabel, typeLabel } from '@/lib/labels';
 import { PIPE_NETWORK, pipeConditionColor, pipeConditionLabel, pipeKindLabel, type PipeSegment } from '@/lib/pipe-network';
-import type { IncidentType, Severity } from '@prisma/client';
+import { kindColor, kindLabel, type MapPoint, type MapPointKind } from '@/lib/map-kinds';
+import { kindGlyph, typeGlyph } from './icons';
+import { ICONS, type IconNode } from '@/lib/icon-paths';
+import type { Severity } from '@prisma/client';
 
-export type MapPointKind = 'incident' | 'worker' | 'camera' | 'sensor' | 'drone' | 'resident' | 'picked';
-export type MapPoint = { id: string; title: string; lat: number; lng: number; severity?: Severity; type?: IncidentType; kind: MapPointKind; subtitle?: string };
+export type { MapPoint, MapPointKind } from '@/lib/map-kinds';
 
 const AKTAU_CENTER: [number, number] = [51.174, 43.653];
 const AKTAU_ZOOM = 11.5;
 // MapLibre не рисует ни одной подписи без glyphs — без этого URL счётчик кластеров оставался пустым.
 // Сервер демонстрационный: для продакшена шрифты стоит положить в public/ и раздавать со своего домена.
 const GLYPHS = 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf';
+// Без явного адреса worker MapLibre под Next.js отдаёт 404, и тогда не отрисовывается
+// ни один GeoJSON-слой: ни точки, ни кластеры, ни схема водопровода (см. scripts/copy-maplibre-worker.mjs).
+maplibregl.setWorkerUrl('/maplibre/maplibre-gl-worker.mjs');
+
 const LIGHT_TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const DARK_TILES = 'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
 
-const kindColor: Record<MapPointKind, string> = { incident: '#df4f62', worker: '#22b8a6', camera: '#64748b', sensor: '#64748b', drone: '#64748b', resident: '#2196e0', picked: '#7b5cf0' };
-const kindLabel: Record<MapPointKind, string> = { incident: 'Инцидент', worker: 'Работник', camera: 'Камера', sensor: 'Датчик', drone: 'Дрон', resident: 'Житель', picked: 'Выбранная точка' };
-const kindIcon: Record<MapPointKind, string> = { incident: '●', worker: '◆', camera: '📷', sensor: '◉', drone: '✦', resident: '⌖', picked: '📍' };
+/** Рисует контур иконки lucide на canvas: та же геометрия, что и в разметке, без системных эмодзи. */
+function drawGlyph(ctx: CanvasRenderingContext2D, node: IconNode, size: number) {
+  const scale = size / 24;
+  ctx.save();
+  ctx.scale(scale, scale);
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (const [tag, attrs] of node) {
+    const path = new Path2D();
+    if (tag === 'path') path.addPath(new Path2D(String(attrs.d)));
+    else if (tag === 'circle') path.arc(Number(attrs.cx), Number(attrs.cy), Number(attrs.r), 0, Math.PI * 2);
+    else if (tag === 'rect') path.roundRect(Number(attrs.x), Number(attrs.y), Number(attrs.width), Number(attrs.height), Number(attrs.rx ?? 0));
+    else if (tag === 'line') { path.moveTo(Number(attrs.x1), Number(attrs.y1)); path.lineTo(Number(attrs.x2), Number(attrs.y2)); }
+    else if (tag === 'polyline' || tag === 'polygon') {
+      const nums = String(attrs.points).trim().split(/[\s,]+/).map(Number);
+      for (let i = 0; i + 1 < nums.length; i += 2) {
+        if (i === 0) path.moveTo(nums[0], nums[1]); else path.lineTo(nums[i], nums[i + 1]);
+      }
+      if (tag === 'polygon') path.closePath();
+    } else continue;
+    ctx.stroke(path);
+  }
+  ctx.restore();
+}
 
 function pointColor(point: MapPoint): string {
   return point.severity ? severityColor[point.severity] : kindColor[point.kind];
@@ -108,6 +137,7 @@ export default function CityMap({ points, route, className = '', controls = true
   const popupRef = useRef<maplibregl.Popup | null>(null);
   const pickRef = useRef(onPick);
   const fitKeyRef = useRef('');
+  const pipeFittedRef = useRef(false);
   const [ready, setReady] = useState(false);
   const [dark, setDark] = useState(false);
   const [showPipes, setShowPipes] = useState(defaultPipes);
@@ -168,19 +198,19 @@ export default function CityMap({ points, route, className = '', controls = true
     map.addControl(new maplibregl.ScaleControl({ maxWidth: 110, unit: 'metric' }), 'bottom-left');
 
     map.on('load', () => {
-      for (const [name, symbol] of Object.entries({
-        ...Object.fromEntries(Object.entries(typeIcon).map(([key, value]) => [`type-${key}`, value])),
-        ...Object.fromEntries(Object.entries(kindIcon).map(([key, value]) => [`kind-${key}`, value])),
-      })) {
+      const markerIcons: Record<string, IconNode> = {
+        ...Object.fromEntries(Object.entries(typeGlyph).map(([key, icon]) => [`type-${key}`, ICONS[icon]])),
+        ...Object.fromEntries(Object.entries(kindGlyph).map(([key, icon]) => [`kind-${key}`, ICONS[icon]])),
+      };
+      for (const [name, node] of Object.entries(markerIcons)) {
         const canvas = document.createElement('canvas');
         canvas.width = 64;
         canvas.height = 64;
         const ctx = canvas.getContext('2d');
         if (!ctx) continue;
-        ctx.font = '40px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(symbol, 32, 34);
+        const size = 42;
+        ctx.translate((64 - size) / 2, (64 - size) / 2);
+        drawGlyph(ctx, node, size);
         map.addImage(name, ctx.getImageData(0, 0, 64, 64), { pixelRatio: 2.4 });
       }
 
@@ -290,6 +320,19 @@ export default function CityMap({ points, route, className = '', controls = true
     (map.getSource('pipes') as GeoJSONSource | undefined)?.setData(pipeData);
   }, [pipeData, ready]);
 
+  // На странице водопровода точек может не быть вовсе, поэтому стартовую область
+  // задаёт сама сеть — иначе карта осталась бы на обзорном зуме всего региона.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready || !lockPipes || pipeFittedRef.current) return;
+    const segments = pipes ?? PIPE_NETWORK;
+    if (segments.length === 0) return;
+    pipeFittedRef.current = true;
+    const bounds = new maplibregl.LngLatBounds();
+    for (const pipe of segments) for (const coord of pipe.coords) bounds.extend(coord);
+    map.fitBounds(bounds, { padding: { top: 60, bottom: 60, left: 50, right: 50 }, duration: 0 });
+  }, [pipes, lockPipes, ready]);
+
   // Смена темы меняет только тайлы — карта и её слои остаются на месте.
   useEffect(() => {
     const map = mapRef.current;
@@ -312,7 +355,7 @@ export default function CityMap({ points, route, className = '', controls = true
     const bounds = boundsOf(points);
     if (!bounds) return;
     const single = bounds.getNorthEast().lat === bounds.getSouthWest().lat && bounds.getNorthEast().lng === bounds.getSouthWest().lng;
-    if (single) map.easeTo({ center: bounds.getCenter(), zoom: Math.max(map.getZoom(), 15), duration: 700 });
+    if (single) map.easeTo({ center: bounds.getCenter(), zoom: Math.max(map.getZoom(), 14.2), duration: 700 });
     else map.fitBounds(bounds, { padding: { top: 70, bottom: 70, left: 60, right: 60 }, maxZoom: 15.5, duration: 700 });
   }, [fitKey, points, ready, autoFit, route]);
 

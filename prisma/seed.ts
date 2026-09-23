@@ -2,22 +2,24 @@ import { PrismaClient, IncidentSource, IncidentType, Severity } from '@prisma/cl
 import { hash } from 'bcryptjs';
 const db = new PrismaClient();
 const center = { lat:43.653,lng:51.174 };
+// Координаты микрорайонов взяты из OpenStreetMap, чтобы подпись адреса на карточке
+// совпадала с точкой на карте: раньше адрес и место расходились.
 const base = [
-  ['Possible person fall','PERSON_FALL','CAMERA','CRITICAL','12 мкр.',43.661,51.164],
-  ['Water leak detected','WATER_LEAK','SENSOR','HIGH','7 мкр.',43.646,51.177],
-  ['Smoke reported','FIRE','CAMERA','HIGH','15 мкр.',43.672,51.151],
-  ['Person near coastline','WATER_RESCUE','DRONE','CRITICAL','Набережная',43.638,51.154],
-  ['Утечка воды во дворе','WATER_LEAK','RESIDENT','MEDIUM','4 мкр.',43.65,51.189],
-  ['Повреждён люк','CITIZEN_REPORT','RESIDENT','LOW','9 мкр.',43.658,51.198],
-  ['Smoke reported','FIRE','CAMERA','MEDIUM','13 мкр.',43.668,51.178],
-  ['Possible person fall','PERSON_FALL','CAMERA','HIGH','11 мкр.',43.655,51.154],
-  ['Water leak detected','WATER_LEAK','SENSOR','MEDIUM','17 мкр.',43.68,51.192],
-  ['Обрыв освещения','OTHER','MANUAL','LOW','3 мкр.',43.643,51.201],
-  ['Person near coastline','WATER_RESCUE','DRONE','HIGH','Скальная тропа',43.632,51.14],
-  ['Possible person fall','PERSON_FALL','CAMERA','MEDIUM','20 мкр.',43.684,51.161],
-  ['Water leak detected','WATER_LEAK','SENSOR','HIGH','26 мкр.',43.694,51.175],
-  ['Задымление','FIRE','CAMERA','CRITICAL','5 мкр.',43.651,51.17],
-  ['Повреждён тротуар','CITIZEN_REPORT','RESIDENT','LOW','14 мкр.',43.673,51.207],
+  ['Возможное падение человека','PERSON_FALL','CAMERA','CRITICAL','12 мкр.',43.66105,51.15033],
+  ['Зафиксирована утечка воды','WATER_LEAK','SENSOR','HIGH','7 мкр.',43.64381,51.15625],
+  ['Зафиксировано задымление','FIRE','CAMERA','HIGH','15 мкр.',43.65915,51.1384],
+  ['Человек у береговой линии','WATER_RESCUE','DRONE','CRITICAL','Набережная',43.641,51.15455],
+  ['Утечка воды во дворе','WATER_LEAK','RESIDENT','MEDIUM','4 мкр.',43.63432,51.16471],
+  ['Повреждён люк','CITIZEN_REPORT','RESIDENT','LOW','9 мкр.',43.64641,51.15336],
+  ['Зафиксировано задымление','FIRE','CAMERA','MEDIUM','13 мкр.',43.66482,51.14067],
+  ['Возможное падение человека','PERSON_FALL','CAMERA','HIGH','11 мкр.',43.65547,51.15522],
+  ['Зафиксирована утечка воды','WATER_LEAK','SENSOR','MEDIUM','17 мкр.',43.67102,51.14397],
+  ['Обрыв освещения','OTHER','MANUAL','LOW','3 мкр.',43.63718,51.17873],
+  ['Человек у береговой линии','WATER_RESCUE','DRONE','HIGH','Скальная тропа',43.62612,51.16652],
+  ['Возможное падение человека','PERSON_FALL','CAMERA','MEDIUM','20 мкр.',43.68342,51.14311],
+  ['Зафиксирована утечка воды','WATER_LEAK','SENSOR','HIGH','26 мкр.',43.66224,51.16547],
+  ['Задымление','FIRE','CAMERA','CRITICAL','5 мкр.',43.63823,51.15886],
+  ['Повреждён тротуар','CITIZEN_REPORT','RESIDENT','LOW','14 мкр.',43.65119,51.146],
 ] as const;
 async function main() {
   const password = process.env.DEMO_PASSWORD;

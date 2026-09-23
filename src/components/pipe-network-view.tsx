@@ -1,6 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
 import { Droplets, Gauge, TriangleAlert, Waves } from 'lucide-react';
+import { Glyph } from './icons';
 import MapView from './map-view';
 import type { MapPoint } from './map';
 import { PIPE_NETWORK, pipeConditionColor, pipeConditionLabel, pipeKindLabel, type PipeCondition, type PipeKind } from '@/lib/pipe-network';
@@ -151,11 +152,11 @@ export default function PipeNetworkView({ points }: { points: MapPoint[] }) {
             {risky.map(pipe => (
               <article className="incident-card" key={pipe.id}>
                 <div className="incident-card-top">
-                  <span className="incident-icon icon-critical">💧</span>
+                  <span className="incident-icon icon-critical"><Glyph name="droplets" size={17} animate/></span>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between gap-2">
                       <strong className="truncate">{pipe.name || pipe.id}</strong>
-                      <span className="badge severity-critical">● {pipeConditionLabel[pipe.condition]}</span>
+                      <span className="badge severity-critical"><i className="badge-dot"/>{pipeConditionLabel[pipe.condition]}</span>
                     </div>
                     <p>{pipeKindLabel[pipe.type]} · ⌀{pipe.diameter} мм · {pipe.material}</p>
                   </div>

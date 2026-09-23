@@ -20,7 +20,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
       <div className="flex items-center gap-3 font-extrabold tracking-widest"><ShieldCheck size={30}/> SU AQTAU</div>
       <h1>Город под контролем. Помощь рядом.</h1>
       <p>Единая цифровая платформа для жителей, городских служб и операторов Актау.</p>
-      <div className="mt-8 text-xs text-cyan-200">● &nbsp; ДЕМОНСТРАЦИОННАЯ СИСТЕМА</div>
+      <div className="mt-8 text-xs text-cyan-200 flex items-center gap-2"><i className="live-dot"/>ДЕМОНСТРАЦИОННАЯ СИСТЕМА</div>
     </div>
     <div className="login-form-side"><div className="login-box">
       <span className="text-cyan-600"><ShieldCheck size={30}/></span>

@@ -17,6 +17,8 @@ export default function LocationFields() {
   const [lng, setLng] = useState(DEFAULT.lng);
   const [message, setMessage] = useState('');
   const [locating, setLocating] = useState(false);
+  // Клик по карте не должен её перецентрировать — иначе точка «убегает» из-под курсора.
+  const [follow, setFollow] = useState(true);
 
   // Точка передаётся карте как обычный маркер, поэтому она и подсвечивается, и попадает в fitBounds.
   const points = useMemo<MapPoint[]>(
@@ -24,7 +26,8 @@ export default function LocationFields() {
     [lat, lng],
   );
 
-  const apply = useCallback((nextLat: number, nextLng: number, note: string) => {
+  const apply = useCallback((nextLat: number, nextLng: number, note: string, recenter = true) => {
+    setFollow(recenter);
     setLat(nextLat);
     setLng(nextLng);
     setMessage(inAktau(nextLat, nextLng) ? note : 'Точка за пределами Актау — обращение не будет принято. Выберите место в городе.');
@@ -66,7 +69,7 @@ export default function LocationFields() {
             {locating ? 'Определяем…' : 'Моё местоположение'}
           </button>
         </div>
-        <MapView points={points} onPick={(nextLat, nextLng) => apply(nextLat, nextLng, 'Место выбрано на карте')} controls={false} cluster={false} className="picker-map" />
+        <MapView points={points} onPick={(nextLat, nextLng) => apply(nextLat, nextLng, 'Место выбрано на карте', false)} controls={false} cluster={false} autoFit={follow} className="picker-map" />
         <div className="location-picker-foot">
           <label className="field">Широта<input type="number" step="any" value={lat} onChange={event => apply(Number(event.target.value), lng, 'Координаты введены вручную')} required /></label>
           <label className="field">Долгота<input type="number" step="any" value={lng} onChange={event => apply(lat, Number(event.target.value), 'Координаты введены вручную')} required /></label>

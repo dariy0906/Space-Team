@@ -16,3 +16,6 @@ Thumbs.db
 *.tsbuildinfo
 frontend/.vite/
 backend/src/generated/
+
+# MapLibre worker копируется из node_modules при запуске
+/public/maplibre/
