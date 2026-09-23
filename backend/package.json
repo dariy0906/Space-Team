@@ -1,0 +1,8 @@
+{
+  "name": "space-team-backend",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": { "build": "nest build", "start": "node dist/main", "start:dev": "nest start --watch", "lint": "eslint \"{src,test}/**/*.ts\"", "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"", "prisma:generate": "prisma generate", "prisma:migrate": "prisma migrate dev", "prisma:deploy": "prisma migrate deploy" },
+  "dependencies": { "@nestjs/bullmq": "latest", "@nestjs/common": "latest", "@nestjs/config": "latest", "@nestjs/core": "latest", "@nestjs/jwt": "latest", "@nestjs/passport": "latest", "@nestjs/platform-express": "latest", "@prisma/client": "6.19.0", "bcrypt": "latest", "bullmq": "latest", "class-transformer": "latest", "class-validator": "latest", "ioredis": "latest", "passport": "latest", "passport-jwt": "latest", "reflect-metadata": "latest", "rxjs": "latest" },
+  "devDependencies": { "@nestjs/cli": "latest", "@nestjs/schematics": "latest", "@nestjs/testing": "latest", "@types/bcrypt": "latest", "@types/node": "latest", "@types/passport-jwt": "latest", "eslint": "latest", "eslint-config-prettier": "latest", "eslint-plugin-prettier": "latest", "prettier": "latest", "prisma": "6.19.0", "source-map-support": "latest", "ts-loader": "latest", "ts-node": "latest", "tsconfig-paths": "latest", "typescript": "5.7.3", "typescript-eslint": "latest" }
+}

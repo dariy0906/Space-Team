@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+
+enum Role {
+  RESIDENT
+  WORKER
+  OPERATOR
+}
+enum IncidentType {
+  FIRE
+  WATER_LEAK
+  PERSON_FALL
+  WATER_RESCUE
+  CITIZEN_REPORT
+  OTHER
+}
+enum IncidentSource {
+  CAMERA
+  SENSOR
+  DRONE
+  RESIDENT
+  MANUAL
+}
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+enum IncidentStatus {
+  NEW
+  CONFIRMED
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+}
+enum TaskStatus {
+  ASSIGNED
+  ACCEPTED
+  ON_THE_WAY
+  ON_SITE
+  COMPLETED
+}
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+model User {
+  id String @id @default(uuid()) @db.Uuid
+  name String
+  email String @unique
+  passwordHash String
+  role Role
+  lat Float?
+  lng Float?
+  isOnline Boolean @default(false)
+  reportedIncidents Incident[] @relation("Reporter")
+  assignedIncidents Incident[] @relation("AssignedWorker")
+  history IncidentHistory[]
+  tasks WorkerTask[]
+  locations WorkerLocation[]
+  reports CitizenReport[]
+  createdAt DateTime @default(now())
+}
+model Incident {
+  id String @id @default(uuid()) @db.Uuid
+  title String
+  description String @default("")
+  type IncidentType
+  source IncidentSource
+  isDemo Boolean @default(false)
+  severity Severity
+  confidence Float?
+  lat Float
+  lng Float
+  address String
+  district String?
+  status IncidentStatus @default(NEW)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  reporterId String? @db.Uuid
+  assignedWorkerId String? @db.Uuid
+  reporter User? @relation("Reporter", fields: [reporterId], references: [id])
+  assignedWorker User? @relation("AssignedWorker", fields: [assignedWorkerId], references: [id])
+  media IncidentMedia[]
+  history IncidentHistory[]
+  task WorkerTask?
+  citizenReport CitizenReport?
+  @@index([status, createdAt])
+  @@index([reporterId])
+}
+model IncidentMedia {
+  id String @id @default(uuid()) @db.Uuid
+  incidentId String @db.Uuid
+  type MediaType
+  url String
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+}
+model IncidentHistory {
+  id String @id @default(uuid()) @db.Uuid
+  incidentId String @db.Uuid
+  action String
+  comment String?
+  previousStatus IncidentStatus?
+  newStatus IncidentStatus?
+  actorId String? @db.Uuid
+  createdAt DateTime @default(now())
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  actor User? @relation(fields: [actorId], references: [id])
+}
+model WorkerTask {
+  id String @id @default(uuid()) @db.Uuid
+  workerId String @db.Uuid
+  incidentId String @unique @db.Uuid
+  status TaskStatus @default(ASSIGNED)
+  assignedAt DateTime @default(now())
+  acceptedAt DateTime?
+  completedAt DateTime?
+  worker User @relation(fields: [workerId], references: [id])
+  incident Incident @relation(fields: [incidentId], references: [id])
+}
+model WorkerLocation {
+  id String @id @default(uuid()) @db.Uuid
+  workerId String @db.Uuid
+  lat Float
+  lng Float
+  createdAt DateTime @default(now())
+  worker User @relation(fields: [workerId], references: [id])
+}
+model CitizenReport {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  incidentId String @unique @db.Uuid
+  user User @relation(fields: [userId], references: [id])
+  incident Incident @relation(fields: [incidentId], references: [id])
+}
+model Camera {
+  id String @id @default(uuid()) @db.Uuid
+  name String
+  lat Float
+  lng Float
+  status String @default("ONLINE")
+}
+model Sensor {
+  id String @id @default(uuid()) @db.Uuid
+  name String
+  type String
+  lat Float
+  lng Float
+  status String @default("ONLINE")
+}
+model Drone {
+  id String @id @default(uuid()) @db.Uuid
+  name String
+  lat Float
+  lng Float
+  status String @default("STANDBY")
+}

@@ -1,0 +1,5 @@
+'use client';
+import { useState } from 'react';
+import type { MapPoint } from './map';
+import MapView from './map-view';
+export default function ResidentMap({ points }: { points: MapPoint[] }) { const [position,setPosition] = useState<MapPoint|null>(null); const [message,setMessage] = useState(''); function locate() { if (!navigator.geolocation) { setMessage('Геолокация не поддерживается'); return; } navigator.geolocation.getCurrentPosition(p => { setPosition({ id:'my-current-location',title:'Моё текущее местоположение',lat:p.coords.latitude,lng:p.coords.longitude,kind:'resident' }); setMessage('Позиция показана на карте'); }, () => setMessage('Не удалось получить местоположение'), { enableHighAccuracy:true }); } return <><div className="panel-header"><h2>Карта Актау</h2><button className="text-link" onClick={locate}>◎ Моё местоположение</button></div>{message&&<div className="subtle px-4">{message}</div>}<MapView points={position?[...points.filter(p=>p.kind!=='resident'),position]:points}/></>; }

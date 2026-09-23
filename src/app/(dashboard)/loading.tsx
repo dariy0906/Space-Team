@@ -1,0 +1,1 @@
+export default function Loading() { return <div className="space-y-4"><div className="skeleton h-8 w-52 rounded"/><div className="grid grid-cols-2 md:grid-cols-4 gap-3">{Array.from({ length:4 },(_,i)=><div key={i} className="skeleton h-24 rounded-xl"/>)}</div><div className="skeleton h-96 rounded-xl"/></div>; }

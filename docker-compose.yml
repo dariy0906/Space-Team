@@ -1,0 +1,42 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aqtau_safe}
+      POSTGRES_USER: ${POSTGRES_USER:-aqtau}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aqtau} -d ${POSTGRES_DB:-aqtau_safe}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-aqtau}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-aqtau_safe}?schema=public
+      WATCHPACK_POLLING: "true"
+    ports:
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./prisma:/app/prisma
+      - uploads_data:/app/data
+      - ./next.config.ts:/app/next.config.ts:ro
+      - ./tailwind.config.ts:/app/tailwind.config.ts:ro
+      - ./postcss.config.js:/app/postcss.config.js:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    command: sh -c "npx prisma migrate deploy && npm run db:seed && npm run dev:next"
+volumes:
+  postgres_data:
+  uploads_data:
