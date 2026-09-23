@@ -694,3 +694,44 @@ button { cursor: pointer; }
   .landing-actions { flex-direction: column; }
   .landing-actions .button { width: 100%; }
 }
+
+/* ══════════════ Переключатель подложки и легенда категорий ══════════════ */
+.map-basemaps {
+  display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(10px);
+  border: 1px solid var(--line-strong); box-shadow: var(--shadow-sm);
+}
+.map-basemaps button {
+  border: 0; background: transparent; color: var(--muted); font-size: 10.5px; font-weight: 800;
+  padding: 6px 11px; border-radius: 8px; transition: background .16s, color .16s;
+}
+.map-basemaps button:hover { color: var(--ink); }
+.map-basemaps button.on { background: var(--brand-soft); color: var(--brand-ink); }
+
+.map-type-legend {
+  display: flex; flex-wrap: wrap; gap: 7px; padding: 12px 16px;
+  border-top: 1px solid var(--line); background: var(--surface);
+}
+.map-type {
+  display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; border-radius: 999px;
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-soft);
+  font-size: 11px; font-weight: 700; transition: border-color .16s, color .16s, opacity .16s, background .16s;
+}
+.map-type:hover { border-color: var(--brand); color: var(--brand); }
+.map-type b { font-size: 10px; padding: 1px 6px; border-radius: 999px; background: var(--input); color: var(--muted); }
+.map-type.off { opacity: .45; border-style: dashed; }
+.map-type.off .glyph { opacity: .55; }
+
+/* На спутнике и тёмной подложке подписи внутри карты нуждаются в подложке потемнее. */
+.on-dark-basemap .map-chip,
+.on-dark-basemap .map-basemaps { background: rgb(9 20 32 / 82%); border-color: rgb(255 255 255 / 16%); color: #e6f2f7; }
+.on-dark-basemap .map-basemaps button { color: #a9c3d1; }
+.on-dark-basemap .map-basemaps button.on { background: rgb(31 189 203 / 22%); color: #7fe4ee; }
+.on-dark-basemap .map-chip.on { background: rgb(31 189 203 / 22%); color: #7fe4ee; border-color: rgb(31 189 203 / 45%); }
+.on-dark-basemap .map-pipe-legend { background: rgb(9 20 32 / 86%); border-color: rgb(255 255 255 / 16%); color: #d7e6ee; }
+.on-dark-basemap .map-pipe-legend-title { color: #fff; }
+
+@media (max-width: 900px) {
+  .map-toolbar { max-width: calc(100% - 20px); }
+  .map-basemaps { order: -1; }
+}

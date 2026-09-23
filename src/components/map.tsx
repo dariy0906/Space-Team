@@ -6,9 +6,9 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { severityColor, severityLabel, typeLabel } from '@/lib/labels';
 import { PIPE_NETWORK, pipeConditionColor, pipeConditionLabel, pipeKindLabel, type PipeSegment } from '@/lib/pipe-network';
 import { kindColor, kindLabel, type MapPoint, type MapPointKind } from '@/lib/map-kinds';
-import { kindGlyph, typeGlyph } from './icons';
+import { TypeGlyph, kindGlyph, typeGlyph } from './icons';
 import { ICONS, type IconNode } from '@/lib/icon-paths';
-import type { Severity } from '@prisma/client';
+import type { IncidentType, Severity } from '@prisma/client';
 
 export type { MapPoint, MapPointKind } from '@/lib/map-kinds';
 
@@ -21,8 +21,20 @@ const GLYPHS = 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf';
 // ни один GeoJSON-слой: ни точки, ни кластеры, ни схема водопровода (см. scripts/copy-maplibre-worker.mjs).
 maplibregl.setWorkerUrl('/maplibre/maplibre-gl-worker.mjs');
 
-const LIGHT_TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-const DARK_TILES = 'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
+// Подложки Esri: бесплатны, без ключа и с местными подписями. Тайлы CARTO с недавних пор
+// возвращают картинку с водяным знаком «API KEY REQUIRED», поэтому от них пришлось отказаться.
+const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services';
+const ESRI_ATTRIBUTION = '© Esri · OpenStreetMap contributors';
+
+export type BasemapId = 'streets' | 'light' | 'satellite' | 'dark';
+
+const BASEMAPS: Record<BasemapId, { label: string; tiles: string; dim: boolean }> = {
+  streets: { label: 'Схема', tiles: `${ESRI}/World_Street_Map/MapServer/tile/{z}/{y}/{x}`, dim: false },
+  light: { label: 'Светлая', tiles: `${ESRI}/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}`, dim: false },
+  satellite: { label: 'Спутник', tiles: `${ESRI}/World_Imagery/MapServer/tile/{z}/{y}/{x}`, dim: true },
+  dark: { label: 'Тёмная', tiles: `${ESRI}/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}`, dim: true },
+};
+const BASEMAP_ORDER: BasemapId[] = ['streets', 'light', 'satellite', 'dark'];
 
 /** Рисует контур иконки lucide на canvas: та же геометрия, что и в разметке, без системных эмодзи. */
 function drawGlyph(ctx: CanvasRenderingContext2D, node: IconNode, size: number) {
@@ -129,9 +141,11 @@ export type CityMapProps = {
   pipes?: PipeSegment[];
   /** Скрыть переключатель слоя труб (страница водопровода управляет им сама). */
   lockPipes?: boolean;
+  /** Подложка при открытии: на схеме водопровода удобнее светлая. */
+  defaultBasemap?: BasemapId;
 };
 
-export default function CityMap({ points, route, className = '', controls = true, defaultPipes = false, cluster = true, autoFit = true, onPick, pipes, lockPipes = false }: CityMapProps) {
+export default function CityMap({ points, route, className = '', controls = true, defaultPipes = false, cluster = true, autoFit = true, onPick, pipes, lockPipes = false, defaultBasemap = 'streets' }: CityMapProps) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
   const popupRef = useRef<maplibregl.Popup | null>(null);
@@ -142,12 +156,30 @@ export default function CityMap({ points, route, className = '', controls = true
   const [dark, setDark] = useState(false);
   const [showPipes, setShowPipes] = useState(defaultPipes);
   const [showHeat, setShowHeat] = useState(false);
+  const [basemap, setBasemap] = useState<BasemapId>(defaultBasemap);
+  const basemapPinned = useRef(false);
+  const initialBasemap = useRef(defaultBasemap);
+  // Скрытые категории происшествий: пусто — показываем всё.
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
 
   pickRef.current = onPick;
 
+  // Сколько точек каждой категории пришло — из этого строится легенда-фильтр под картой.
+  const byType = useMemo(() => {
+    const counts = new Map<IncidentType, number>();
+    for (const point of points) {
+      if (!point.type) continue;
+      counts.set(point.type, (counts.get(point.type) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  }, [points]);
+
+  const shown = useMemo(() => points.filter(point => !point.type || !hidden.has(point.type)), [points, hidden]);
+
   // Сигнатура набора точек: пересчёт видимой области только при реальном изменении состава.
+  // Фильтр по категориям сюда не входит — иначе карта прыгала бы при каждом переключении.
   const fitKey = useMemo(() => points.map(p => `${p.id}:${p.lat.toFixed(5)}:${p.lng.toFixed(5)}`).join('|'), [points]);
-  const data = useMemo(() => pointCollection(points), [points]);
+  const data = useMemo(() => pointCollection(shown), [shown]);
 
   const pipeData = useMemo(() => pipeCollection(pipes ?? PIPE_NETWORK), [pipes]);
   const pipeStats = useMemo(() => {
@@ -189,7 +221,7 @@ export default function CityMap({ points, route, className = '', controls = true
       style: {
         version: 8,
         glyphs: GLYPHS,
-        sources: { osm: { type: 'raster', tiles: [LIGHT_TILES], tileSize: 256, attribution: '© OpenStreetMap contributors, © CARTO' } },
+        sources: { osm: { type: 'raster', tiles: [BASEMAPS[initialBasemap.current].tiles], tileSize: 256, maxzoom: 19, attribution: ESRI_ATTRIBUTION } },
         layers: [{ id: 'base', type: 'raster', source: 'osm' }],
       },
     });
@@ -208,7 +240,7 @@ export default function CityMap({ points, route, className = '', controls = true
         canvas.height = 64;
         const ctx = canvas.getContext('2d');
         if (!ctx) continue;
-        const size = 42;
+        const size = 40;
         ctx.translate((64 - size) / 2, (64 - size) / 2);
         drawGlyph(ctx, node, size);
         map.addImage(name, ctx.getImageData(0, 0, 64, 64), { pixelRatio: 2.4 });
@@ -224,7 +256,7 @@ export default function CityMap({ points, route, className = '', controls = true
 
       map.addLayer({ id: 'marker-pulse', type: 'circle', source: 'points', filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'urgent'], 1]], paint: { 'circle-color': ['get', 'color'], 'circle-opacity': 0.18, 'circle-radius': 26 } });
       map.addLayer({ id: 'markers', type: 'circle', source: 'points', filter: ['!', ['has', 'point_count']], paint: { 'circle-color': ['get', 'color'], 'circle-radius': ['get', 'radius'], 'circle-stroke-color': '#fff', 'circle-stroke-width': 2.5 } });
-      map.addLayer({ id: 'marker-icons', type: 'symbol', source: 'points', filter: ['!', ['has', 'point_count']], layout: { 'icon-image': ['get', 'icon'], 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-size': 0.85 } });
+      map.addLayer({ id: 'marker-icons', type: 'symbol', source: 'points', filter: ['!', ['has', 'point_count']], layout: { 'icon-image': ['get', 'icon'], 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-size': 1 } });
 
       map.addLayer({ id: 'clusters', type: 'circle', source: 'points', filter: ['has', 'point_count'], paint: { 'circle-color': ['step', ['get', 'point_count'], '#0f9aa8', 10, '#0d7d96', 25, '#123b59'], 'circle-radius': ['step', ['get', 'point_count'], 19, 10, 24, 25, 30], 'circle-stroke-color': '#fff', 'circle-stroke-width': 2.5, 'circle-opacity': 0.94 } });
       map.addLayer({ id: 'cluster-count', type: 'symbol', source: 'points', filter: ['has', 'point_count'], layout: { 'text-field': ['get', 'point_count_abbreviated'], 'text-font': ['Noto Sans Bold'], 'text-size': 13 }, paint: { 'text-color': '#fff' } });
@@ -333,12 +365,18 @@ export default function CityMap({ points, route, className = '', controls = true
     map.fitBounds(bounds, { padding: { top: 60, bottom: 60, left: 50, right: 50 }, duration: 0 });
   }, [pipes, lockPipes, ready]);
 
-  // Смена темы меняет только тайлы — карта и её слои остаются на месте.
+  // Подложка меняется без пересоздания карты: слои с точками и трубами остаются на месте.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready) return;
-    (map.getSource('osm') as RasterTileSource | undefined)?.setTiles([dark ? DARK_TILES : LIGHT_TILES]);
-  }, [dark, ready]);
+    (map.getSource('osm') as RasterTileSource | undefined)?.setTiles([BASEMAPS[basemap].tiles]);
+  }, [basemap, ready]);
+
+  // Тёмная тема интерфейса переключает подложку только пока её не выбрали вручную.
+  useEffect(() => {
+    if (basemapPinned.current) return;
+    setBasemap(dark ? 'dark' : defaultBasemap === 'dark' ? 'light' : defaultBasemap);
+  }, [dark, defaultBasemap]);
 
   // Точки обновляются данными источника, а не пересозданием карты.
   useEffect(() => {
@@ -405,10 +443,29 @@ export default function CityMap({ points, route, className = '', controls = true
     return () => cancelAnimationFrame(frame);
   }, [ready]);
 
-  const visible = points.length;
+  function pickBasemap(id: BasemapId) {
+    basemapPinned.current = true;
+    setBasemap(id);
+  }
+
+  function toggleType(type: IncidentType) {
+    setHidden(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type); else next.add(type);
+      return next;
+    });
+  }
+
+  function fitAll() {
+    const map = mapRef.current;
+    if (!map) return;
+    const bounds = boundsOf(shown);
+    if (bounds) map.fitBounds(bounds, { padding: 70, maxZoom: 15.5, duration: 600 });
+    else map.easeTo({ center: AKTAU_CENTER, zoom: AKTAU_ZOOM, duration: 600 });
+  }
 
   return (
-    <div className={`map-frame ${className}`}>
+    <div className={`map-frame ${className} ${BASEMAPS[basemap].dim ? 'on-dark-basemap' : ''}`}>
       {controls && (
         <div className="map-toolbar">
           {!lockPipes && (
@@ -419,12 +476,37 @@ export default function CityMap({ points, route, className = '', controls = true
           <button type="button" className={`map-chip ${showHeat ? 'on' : ''}`} onClick={() => setShowHeat(v => !v)} aria-pressed={showHeat}>
             <span className="map-chip-mark heat" /> Тепловая карта
           </button>
-          <button type="button" className="map-chip" onClick={() => { const bounds = boundsOf(points); const map = mapRef.current; if (!map) return; if (bounds) map.fitBounds(bounds, { padding: 70, maxZoom: 15.5, duration: 600 }); else map.easeTo({ center: AKTAU_CENTER, zoom: AKTAU_ZOOM, duration: 600 }); }}>
-            <span className="map-chip-mark fit" /> Показать все ({visible})
+          <button type="button" className="map-chip" onClick={fitAll}>
+            <span className="map-chip-mark fit" /> Показать все ({shown.length})
           </button>
+          <div className="map-basemaps" role="group" aria-label="Подложка карты">
+            {BASEMAP_ORDER.map(id => (
+              <button key={id} type="button" className={basemap === id ? 'on' : ''} onClick={() => pickBasemap(id)} aria-pressed={basemap === id}>
+                {BASEMAPS[id].label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
       <div ref={container} className="city-map" aria-label="Карта Актау" />
+      {byType.length > 0 && (
+        <div className="map-type-legend">
+          {byType.map(([type, count]) => (
+            <button
+              key={type}
+              type="button"
+              className={`map-type ${hidden.has(type) ? 'off' : ''}`}
+              onClick={() => toggleType(type)}
+              aria-pressed={!hidden.has(type)}
+              title={hidden.has(type) ? `Показать: ${typeLabel[type]}` : `Скрыть: ${typeLabel[type]}`}
+            >
+              <TypeGlyph type={type} size={15} animate={!hidden.has(type)} />
+              {typeLabel[type]}
+              <b>{count}</b>
+            </button>
+          ))}
+        </div>
+      )}
       {onPick && <div className="map-hint">Нажмите на карту, чтобы указать точное место</div>}
       {showPipes && (
         <div className="map-pipe-legend">

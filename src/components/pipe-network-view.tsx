@@ -118,7 +118,7 @@ export default function PipeNetworkView({ points }: { points: MapPoint[] }) {
               ))}
             </div>
           </div>
-          <MapView points={showIncidents ? points : []} pipes={segments} defaultPipes lockPipes autoFit={false} className="pipe-map" />
+          <MapView points={showIncidents ? points : []} pipes={segments} defaultPipes lockPipes autoFit={false} defaultBasemap="light" className="pipe-map" />
         </section>
 
         <section className="panel">
