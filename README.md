@@ -1,63 +1,186 @@
-# SU AQTAU — MVP городской безопасности
+# SU AQTAU — Smart City Aktau
 
-Демонстрационная веб-платформа для жителей, работников и операторов Актау. На этом этапе события от камер, датчиков и дронов полностью имитируются. Никакого распознавания, AI-моделей или интеграции с городскими службами в проекте нет.
+Единая цифровая система городского мониторинга и реагирования для Актау.
+Сквозной сценарий: **обращение жителя → оператор → назначение работника → маршрут → работа с
+AFTER-фото → RESOLVED**. Второй сценарий: добровольная **phone-camera** (WebRTC) с реальным
+компьютерным зрением (CV) для возможного падения.
 
-## Где находится приложение
+Проект — работающий MVP хакатона: реальный сервер, PostgreSQL, realtime, маршрутизация и AI-Vision.
+Ниже честно разделено, что реально, что демо-мок, что экспериментально и чего пока нет.
 
-Новый Next.js проект расположен **в корне этой папки**: `src/`, `prisma/`, `public/`, `package.json`. Папки `frontend/`, `backend/` и `nginx/` сохранены от предыдущего каркаса и не используются новым приложением. Команды ниже выполняются в корне, где лежит этот README.
+## Стек и архитектура
 
-## Стек
+- **Next.js 15** (App Router) — UI + server actions + API route handlers (единый сервер).
+- **PostgreSQL 16 + Prisma 6** — вся бизнес-логика и данные.
+- **SSE** `/api/events` поверх durable-таблицы `RealtimeEvent` (outbox) — обновления без ручного refresh.
+- **MapLibre GL JS** — карта Актау (OpenStreetMap/CARTO тайлы).
+- **OSRM** — реальный дорожный маршрутинг (без LLM).
+- **FastAPI + MediaPipe Pose Landmarker** — отдельный CV-сервис (`services/cv`).
+- **WebRTC** — телефон как demo-камера (signaling через PostgreSQL, STUN/TURN из env).
+- **Caddy** — автоматический HTTPS в production.
 
-Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, Prisma 6, PostgreSQL 16, MapLibre GL JS, Zod, подписанная сессия в HttpOnly cookie. Данные инцидентов и задач хранятся в PostgreSQL; настройки темы и языка сохраняются только в браузере.
-
-## Запуск
-
-Нужны npm и Docker с плагином Compose. При первом запуске, если `.env` отсутствует, скрипт создаст его со случайными `POSTGRES_PASSWORD`, `SESSION_SECRET` и `DEMO_PASSWORD` и напечатает демо-пароль. Существующий `.env` не перезаписывается. При ручной настройке используйте `.env.example`: пароль в `DATABASE_URL` должен совпадать с `POSTGRES_PASSWORD`. Используйте URL-безопасный пароль без символов `@`, `:`, `/`, `?`, `#` или закодируйте их для строки подключения.
-
-```bash
-npm run dev
+```text
+src/app/          страницы, server actions, API-роуты
+src/components/   карта, карточки, WebRTC-компоненты, оболочка
+src/lib/          auth, Prisma, workflow, dispatch, routing, cameras, events
+prisma/           схема, миграции, seed
+services/cv/      FastAPI + MediaPipe (fall/experimental fight)
+tests/            backend-тесты и браузерные E2E (Playwright)
+scripts/          reset-demo, seed-demo, prepare-env
+Dockerfile        production-образ
+docker-compose.prod.yml + Caddyfile  production-развёртывание
 ```
 
-Команда `npm run dev` собирает и поднимает контейнеры `db` и `web`, ждёт готовности PostgreSQL, применяет Prisma-миграции, загружает seed и запускает Next.js с обновлением страниц при изменении исходников. Откройте `http://localhost:3000` (или порт из `APP_PORT`). Повторный запуск seed не дублирует демо-данные. Остановить оба контейнера: `Ctrl+C` в терминале с Compose или `npm run dev:down`. Логи: `docker compose logs -f web db`.
+> `backend/`, `frontend/`, `nginx/` — заброшенный каркас раннего этапа, не используются.
 
-Если выводится `docker: command not found`, установите Docker Engine, Docker Compose и Docker Buildx в системном терминале. Для Arch Linux: `sudo pacman -Syu docker docker-compose docker-buildx`, затем `sudo systemctl enable --now docker.service`. Чтобы запускать `npm run dev` без `sudo`, добавьте себя в группу Docker: `sudo usermod -aG docker "$USER"` и войдите в систему заново. Проверьте `docker compose version` и `docker info`. Терминал изолированной среды Codex может не иметь доступа к системному Docker — в таком случае запускайте проект из обычного терминала компьютера.
+## Роли
 
-Для локального запуска Next.js вне Docker: сначала `docker compose up -d db`, затем `npm install`, `npm run db:deploy`, `npm run db:seed` и `npm run dev:next`. Для production-сборки: `npm run build && npm run start` при доступной БД.
+- **RESIDENT** — карта, создание обращения с обязательным фото, свои заявки и статусы, уведомления,
+  публичные предупреждения.
+- **WORKER** — назначенные задачи, последовательный план дня, маршрут OSRM, обязательный комментарий
+  и AFTER-фото.
+- **OPERATOR** (2 диспетчера, равные права) — события, подтверждение/отклонение, рекомендации
+  исполнителя, назначение, доработка (REOPEN + WorkerViolation), подтверждение решения.
+- **ADMIN** — пользователи, смены, специализации, demo-камеры, QR/email-приглашения, аудит.
 
-Демо-аккаунты используют пароль из `DEMO_PASSWORD`:
+## Что реально (REAL)
 
-В режиме разработки на странице входа есть три кнопки быстрого входа по ролям — пароль вводить не требуется. В production-сборке быстрый вход отключён.
+- PostgreSQL как единственный источник истины; миграции и идемпотентный seed.
+- Роли и серверная авторизация (`requireUser`, scoping по ролям), загрузка фото (MIME + magic bytes + ACL).
+- Сквозной цикл обращения: создание → подтверждение → recommendation по специализации/загрузке →
+  назначение → шаги работника → RESOLVED.
+- Realtime без ручного refresh (SSE outbox).
+- Блокировка события за оператором и **timeout** CRITICAL: demo 20 c / production 60 c, передача
+  второму оператору; конкурентный claim сериализуется на уровне БД (`SELECT ... FOR UPDATE`).
+- План работника с порядком задач; задача не блокируется «зависшими» задачами прошлых запусков.
+- Реальный дорожный маршрут и ETA через OSRM (при недоступности — честное «маршрутизатор недоступен»).
+- Before/After фото результата.
+- Admin: пользователи/смены/камеры, QR и email-приглашения, STOP камеры.
+- **Phone camera (WebRTC)**: QR → consent → getUserMedia → CameraSession ACTIVE → live video у оператора;
+  STOP владельцем и Admin; оператор не может включить камеру удалённо.
+- **Fall Detection (end-to-end)**: phone → кадры → CV (реальный MediaPipe Pose) → temporal-эвристика
+  (стоя → переход → лёжа → выдержка) → `PERSON_FALL` CRITICAL → SSE → оператор. Это **возможное**
+  падение, решение принимает оператор.
+
+## DEMO / MOCK (явно помечено в интерфейсе)
+
+Seed-данные, не реальные детекторы (помечены DEMO/MOCK):
+пожар, дым, утечка воды, происшествие на воде, дрон-спасение, сильный ветер, датчики, публичные
+предупреждения. Реальные детекторы этих классов пока не подключены.
+
+## EXPERIMENTAL
+
+- **Fall Detection** — temporal-эвристика, не обучаемый классификатор и не медицинский вывод.
+  В карточке показываются «Heuristic fall score» и отдельно «Pose visibility». Confidence — это
+  эвристический detection score, НЕ вероятность падения.
+- **Fight Detection** — реализован как экспериментальная temporal-эвристика (движение 2+ человек с
+  выдержкой), но **выключен по умолчанию** (`ENABLE_FIGHT=true`). Реальная 2-персонная валидация на
+  MediaPipe не завершена.
+
+## MISSING / FUTURE
+
+Пробки (traffic), общественный транспорт и ETA автобуса, оценка ветра по видео, навигация жителя,
+push-уведомления, offline-PWA, APK (Capacitor), реальные детекторы fire/smoke/water.
+
+## Быстрый старт (локально, с Docker)
+
+Нужны Docker с Compose. При первом запуске создастся `.env` со случайными ключами.
+
+```bash
+npm run dev        # db + web, миграции, seed, dev-сервер на http://localhost:3000
+npm run dev:down   # остановить
+```
+
+Без Docker: поднять PostgreSQL, затем
+
+```bash
+npm install
+npm run db:deploy
+npm run db:seed
+npm run dev:next
+```
+
+Демо-вход (пароль из `DEMO_PASSWORD`) либо кнопки быстрого входа при `DEMO_MODE=true`:
 
 | Роль | Email |
 | --- | --- |
-| Оператор | `operator@demo.kz` |
-| Работник | `worker@demo.kz` |
-| Житель | `resident@demo.kz` |
+| Оператор | `operator@demo.kz`, `operator2@demo.kz` |
+| Работник | `worker@demo.kz` (+ `worker-<spec>-<n>@demo.kz`) |
+| Житель | `resident@demo.kz` … `resident4@demo.kz` |
+| Админ | `admin@demo.kz` |
 
-Также создаются ещё три работника: `worker2@demo.kz`–`worker4@demo.kz`.
+### Сброс демо-базы
 
-## Основные сценарии
+Одна команда для предсказуемого старта (4 жителя, 2 оператора, 1 админ, по 2 работника на
+специальность, демо-события, без незавершённых задач):
 
-Оператор видит карту, KPI и список событий, создаёт событие кнопкой «Simulate incident», подтверждает его и назначает работника. Работник проходит статусы «Принять» → «Выехал» → «На месте» → «Завершить», оставляет результат и при желании фото. Статус инцидента становится `RESOLVED`; оператор видит обновлённую статистику. Житель может создать обращение с координатами и фото и отслеживать его историю.
-
-Карта центрирована на Актау и использует внешние тайлы OpenStreetMap. Для их отображения нужен интернет. Демо-маршрут — прямая линия и приблизительное расстояние. Данные служебных точек и их позиции являются демонстрационными. Пользовательское фото загружается на диск текущего сервера в `data/uploads` и отдаётся после проверки роли; для нескольких серверов понадобится внешнее файловое хранилище.
-
-## Структура
-
-```text
-src/app/              страницы, серверные действия, маршруты по ролям
-src/components/       карта, карточки, оболочка dashboard, формы
-src/lib/              сессия, Prisma, валидация, подписи
-prisma/schema.prisma  модель данных
-prisma/migrations/     первая миграция
-prisma/seed.ts         демо-данные
-public/               manifest, иконки и service worker
-Dockerfile.dev         контейнер Next.js для разработки
-docker-compose.yml    Next.js и PostgreSQL
+```bash
+DEMO_MODE=true npm run demo:reset
 ```
 
-Новая миграция при изменении схемы во время работы контейнеров: `docker compose exec web npx prisma migrate dev --name имя_изменения`. Проверки вне контейнера после `npm install`: `npm run lint`, `npm run build`.
+Guard: команда откажется работать при `NODE_ENV=production` без `DEMO_MODE=true` и на удалённом
+хосте БД без `ALLOW_REMOTE_DEMO_RESET=true`. Схема не удаляется, сбрасываются только данные.
 
-## PWA и ограничения MVP
+## CV-сервис (память/безопасность)
 
-Проект содержит manifest, иконки и service worker для установки PWA. Кнопка APK выключена: Android APK пока не собирается. Настройки уведомлений и sharing location пока влияют только на предпочтения интерфейса; push и друзья на карте не реализованы. Переключатель языка переводит навигацию, остальные экраны MVP пока преимущественно на русском. Нет автоматического генератора событий по таймеру: для контролируемого показа используется кнопка оператора. Нет AI, YOLO, OpenCV, реального видеопотока или интеграций МЧС/скорой/полиции.
+```bash
+cd services/cv
+python -m pip install -r requirements.txt
+POSE_MODEL_PATH=/models/pose_landmarker_lite.task CV_SERVICE_KEY=<shared> DEMO_MODE=true \
+  DEMO_FALL_TIMEOUT=8 python -m uvicorn app:app --host 0.0.0.0 --port 8000
+```
+
+Приложение обращается к сервису по `CV_SERVICE_URL` с `Authorization: Bearer CV_SERVICE_KEY`.
+Если CV выключен, видеозвонок работает, а кадры не анализируются (в UI явно написано).
+
+## Тесты
+
+```bash
+npm run lint
+npx tsc --noEmit
+npm run build
+
+# backend (нужна изолированная БД, имя содержит aqtau_test)
+DATABASE_URL=<...aqtau_test> DEMO_MODE=true node_modules/.bin/tsx --test tests/workflow.test.ts tests/worker-queue.test.ts
+
+# браузерные E2E (Playwright + Chromium), приложение должно быть запущено
+DATABASE_URL=<..._test> E2E_URL=http://localhost:3000 CHROMIUM_PATH=/usr/bin/chromium node tests/browser-workflow.mjs
+DATABASE_URL=<..._test> E2E_URL=http://localhost:3000 CHROMIUM_PATH=/usr/bin/chromium node tests/browser-operators.mjs
+DATABASE_URL=<..._test> E2E_URL=http://localhost:3000 APP_PUBLIC_URL=http://localhost:3000 CHROMIUM_PATH=/usr/bin/chromium node tests/browser-camera.mjs
+DATABASE_URL=<..._test> E2E_URL=http://localhost:3000 CHROMIUM_PATH=/usr/bin/chromium FALL_STAND_IMAGE=/path/person.jpg node tests/browser-fall.mjs
+
+# CV
+cd services/cv && python -m unittest test_detectors test_video -v
+```
+
+## Production-развёртывание
+
+```bash
+cp .env.example .env      # заполнить секреты, APP_PUBLIC_URL и DOMAIN
+docker compose -f docker-compose.prod.yml up -d --build
+# открыть https://$DOMAIN
+```
+
+Компоненты: PostgreSQL, Next.js (production build + `prisma migrate deploy`), CV-сервис, Caddy
+(автоматический HTTPS). Загруженные фото — в named-volume `uploads_data`.
+
+Для камеры телефона обязателен HTTPS-домен в `APP_PUBLIC_URL` (браузер требует secure context;
+localhost — исключение). Между разными сетями настройте `TURN_URL/USERNAME/PASSWORD`.
+
+## Конфиденциальность и безопасность
+
+- Камера включается только после явного согласия владельца (`CameraPermission` до статуса ACTIVE);
+  владелец и Admin могут остановить; оператор не включает камеру удалённо.
+- Роли проверяются на сервере; житель не видит служебные поля, confidence, внутренние комментарии,
+  чужие обращения и закрытые камеры.
+- Загрузки: тип, размер и magic bytes, отдача через проверку роли; `nosniff`.
+- Секреты только в env (`.env` в `.gitignore`); хардкод-секретов нет.
+- Нет автоматических вызовов 102/103/112, нет face recognition, друзей и рейтингов.
+
+## Известные ограничения
+
+- CV fall использует эвристику; реальное fall-видео в CI не проверяется (нужен сэмпл).
+- Fight detection экспериментальный и выключен.
+- Realtime — SSE-поллинг по outbox; при недоступности события страница перезагружается автоматически.
+- `dispatchCritical` при старте отдаёт новые CRITICAL первому оператору (ротация — после timeout).
+- Единый сервер предполагает один инстанс приложения (in-process таймеры dispatching/expiry).

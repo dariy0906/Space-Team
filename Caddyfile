@@ -1,0 +1,6 @@
+# Automatic HTTPS (Let's Encrypt) for the production demo.
+# Set DOMAIN in .env to a DNS name pointing at this host, e.g. aqtau.example.kz
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy web:3000
+}

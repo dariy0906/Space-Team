@@ -1,6 +1,21 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.error-banner,.warning-banner,.critical-banner{border-radius:12px;padding:15px 18px;margin-bottom:16px;font-size:13px;border:1px solid #f59e0b44;background:#f59e0b12}
+.error-banner,.critical-banner{background:#ef444412;border-color:#ef444440;color:#dc5365}.warning-banner p{margin-top:5px}
+.before-after{display:grid;grid-template-columns:1fr 1fr;gap:16px}.empty-photo{height:160px;display:grid;place-items:center;background:var(--input);border:1px dashed var(--line);border-radius:10px;color:var(--muted);font-size:12px}
+.recommendation{border:1px solid var(--line);padding:14px;border-radius:10px}.recommendation:first-of-type{border-color:#06b6d4}.recommendation .button{margin-top:10px}
+.map-wrap{position:relative}.map-error{position:absolute;z-index:2;bottom:24px;left:12px;right:12px;background:var(--surface);color:var(--muted);font-size:11px;padding:8px;border-radius:8px}
+.city-map.picker-map{height:270px}.city-map.detail-map{height:300px}
+.realtime-state{font-size:10px;color:#b5811b;white-space:nowrap}.realtime-state.online{color:#10b981}
+.demo-role-group{margin-top:12px;border:1px solid #dce9ef;border-radius:10px;padding:10px}.demo-role-group summary{cursor:pointer;font-size:12px;font-weight:700;color:#173b4c}.demo-role-group .quick-login-form{max-height:240px;overflow:auto}
+.camera-preview{width:100%;aspect-ratio:16/9;background:#020617;border-radius:12px;object-fit:contain}
+.phone-page{max-width:700px;margin:0 auto;padding:24px;min-height:100vh}.phone-page h1{font-size:26px;font-weight:800;margin:20px 0}.camera-live{color:#10b981;font-size:14px;font-weight:800;margin:12px 0}
+.dark .panel,.dark .kpi{box-shadow:0 6px 24px #0002}.dark .badge{filter:saturate(.85)}.incident-card{transition:border-color .15s,box-shadow .15s}.incident-card:hover{border-color:#06b6d466;box-shadow:0 4px 18px #06b6d40a}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #06b6d4;outline-offset:3px}
+@media(min-width:1201px){.kpi-grid{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}}
+@media(max-width:640px){.before-after{grid-template-columns:1fr}.realtime-state{display:none}}
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
 :root{--bg:#f2f6f9;--surface:#fff;--ink:#15243a;--muted:#7b8a9d;--line:#e5ebf0;--teal:#00a9b7;--side:#10263b;--input:#f8fafc}
 .dark{--bg:#0c1826;--surface:#14283b;--ink:#e9f2f8;--muted:#9eb0bf;--line:#284054;--side:#071523;--input:#182f43}

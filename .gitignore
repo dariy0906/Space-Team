@@ -14,5 +14,8 @@ Thumbs.db
 .idea/
 .vscode/
 *.tsbuildinfo
+__pycache__/
+.venv/
+test-results/
 frontend/.vite/
 backend/src/generated/

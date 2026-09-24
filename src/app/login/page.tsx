@@ -1,54 +1,12 @@
-import { redirect } from 'next/navigation';
-import { ArrowRight, HardHat, MapPin, ShieldCheck } from 'lucide-react';
-import { currentUser } from '@/lib/auth';
-import { loginAction, quickLoginAction } from '../actions';
-
-const demoRoles = [
-  { role: 'OPERATOR', label: 'Оператор', detail: 'Карта и управление событиями', Icon: ShieldCheck },
-  { role: 'WORKER', label: 'Работник', detail: 'Задачи и маршрут', Icon: HardHat },
-  { role: 'RESIDENT', label: 'Житель', detail: 'Карта и обращения', Icon: MapPin },
-] as const;
-
-export default async function Login({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const user = await currentUser();
-  if (user) redirect(`/${user.role.toLowerCase()}`);
-  const { error } = await searchParams;
-  const showQuickLogin = process.env.NODE_ENV === 'development';
-
-  return <div className="login-page">
-    <div className="login-art">
-      <div className="flex items-center gap-3 font-extrabold tracking-widest"><ShieldCheck size={30}/> SU AQTAU</div>
-      <h1>Город под контролем. Помощь рядом.</h1>
-      <p>Единая цифровая платформа для жителей, городских служб и операторов Актау.</p>
-      <div className="mt-8 text-xs text-cyan-200">● &nbsp; ДЕМОНСТРАЦИОННАЯ СИСТЕМА</div>
-    </div>
-    <div className="login-form-side"><div className="login-box">
-      <span className="text-cyan-600"><ShieldCheck size={30}/></span>
-      <h2>Добро пожаловать</h2>
-      <p className="subtle">Войдите, чтобы продолжить работу</p>
-      {error && <p className="toast" style={{ background:'#ffe9e9', color:'#a43d4c' }}>
-        {error === 'demo' ? 'Демо-аккаунт не найден. Проверьте загрузку seed.' : 'Неверный email или пароль'}
-      </p>}
-
-      {showQuickLogin && <section className="demo-fast-login" aria-label="Быстрый демо-вход">
-        <strong>Быстрый демо-вход</strong>
-        <p>Выберите роль — логин и пароль вводить не нужно.</p>
-        <form action={quickLoginAction} className="quick-login-form">
-          {demoRoles.map(({ role, label, detail, Icon }) => <button key={role} type="submit" name="role" value={role} className="quick-login-button">
-            <span className="quick-login-icon"><Icon size={18}/></span>
-            <span><b>{label}</b><small>{detail}</small></span>
-            <ArrowRight size={16} className="ml-auto text-slate-400"/>
-          </button>)}
-        </form>
-      </section>}
-
-      <div className="login-divider"><span>или войдите по паролю</span></div>
-      <form action={loginAction} className="password-login-form">
-        <label className="field">Email<input name="email" type="email" required placeholder="operator@demo.kz" /></label>
-        <label className="field">Пароль<input name="password" type="password" required placeholder="Ваш демо-пароль" /></label>
-        <button className="button w-full" type="submit">Войти <ArrowRight size={16}/></button>
-      </form>
-      <div className="demo-accounts">Демо-пароль хранится в <code>.env</code> и задаётся через <code>DEMO_PASSWORD</code>.</div>
-    </div></div>
-  </div>;
+import {redirect} from 'next/navigation';
+import {ShieldCheck} from 'lucide-react';
+import {currentUser} from '@/lib/auth';
+import {demoAccounts,demoEnabled} from '@/lib/demo';
+import {loginAction,quickLoginAction} from '../actions';
+import SubmitButton from '@/components/submit-button';
+export default async function Login({searchParams}:{searchParams:Promise<{error?:string}>}){
+ const user=await currentUser();if(user)redirect('/'+user.role.toLowerCase());const {error}=await searchParams;
+ const roles={OPERATOR:'Диспетчеры',ADMIN:'Администратор',RESIDENT:'Жители',WORKER:'Городские службы'};
+ return <div className="login-page"><div className="login-art"><div className="flex items-center gap-3 font-extrabold tracking-widest"><ShieldCheck/> SU AQTAU</div><h1>Город под контролем.<br/>Помощь рядом.</h1><p>Единая диспетчерская Актау. От обращения жителя до подтверждённого результата.</p><div className="mt-8 text-xs text-cyan-200">SMART CITY AKTAU · HACKATHON MVP</div></div><div className="login-form-side"><div className="login-box"><p className="eyebrow">ДОБРО ПОЖАЛОВАТЬ</p><h2>Выберите рабочее место</h2>{error&&<p className="error-banner">{error==='demo'?'Загрузите демо-аккаунты командой db:seed':'Неверный email или пароль'}</p>}{demoEnabled()&&<section className="demo-fast-login"><p>Демонстрационные аккаунты · вход без пароля</p>{Object.entries(roles).map(([role,label])=><details key={role} open={role==='OPERATOR'} className="demo-role-group"><summary>{label}</summary><form action={quickLoginAction} className="quick-login-form">{demoAccounts.filter(a=>a.role===role).map(a=><button name="email" value={a.email} className="quick-login-button" key={a.email}><span><b>{a.name}</b><small>{a.email}</small></span><span className="ml-auto">→</span></button>)}</form></details>)}</section>}<details className="mt-5"><summary className="subtle cursor-pointer">Войти по email и паролю</summary><form action={loginAction}><label className="field">Email<input name="email" type="email" required autoComplete="username"/></label><label className="field">Пароль<input name="password" type="password" required autoComplete="current-password"/></label><SubmitButton>Войти</SubmitButton></form></details></div></div></div>;
 }
+

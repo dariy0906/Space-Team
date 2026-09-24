@@ -1,0 +1,81 @@
+import {chromium} from 'playwright';
+import {PrismaClient} from '@prisma/client';
+import assert from 'node:assert/strict';
+import {mkdir} from 'node:fs/promises';
+const url=process.env.E2E_URL||'http://localhost:3100';
+const database=new URL(process.env.DATABASE_URL||'');
+assert.match(database.pathname,/_test$/,'E2E must use a dedicated database ending in _test');
+assert.ok(['localhost','127.0.0.1'].includes(new URL(url).hostname),'E2E targets local app only');
+const db=new PrismaClient();
+const browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH}:{}),args:['--no-sandbox']});
+const errors=[];
+await mkdir('test-results',{recursive:true});
+const photo={name:'test.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jR1sAAAAASUVORK5CYII=','base64')};
+async function login(email,role){
+ console.log('LOGIN',email);
+ const ctx=await browser.newContext({serviceWorkers:'block',viewport:{width:1440,height:1000}});
+ // Map tiles are external; routing itself is still requested by the real server.
+ await ctx.route('**/*',r=>new URL(r.request().url()).origin===url?r.continue():r.abort());
+ const p=await ctx.newPage();p.setDefaultTimeout(30000);p.on('pageerror',e=>errors.push(e.message));
+ await p.goto(url+'/login',{waitUntil:'domcontentloaded'});
+ const button=p.locator('button[name=email][value="'+email+'"]');
+ await button.evaluate(el=>el.closest('details').open=true);
+ await button.click();await p.waitForURL('**/'+role,{waitUntil:'domcontentloaded'});
+ await p.getByText('● Live',{exact:true}).waitFor();console.log('READY',role);return p;
+}
+try{
+ const operator=await login('operator@demo.kz','operator'),resident=await login('resident@demo.kz','resident');
+ await resident.goto(url+'/resident/report',{waitUntil:'domcontentloaded'});
+ const title='E2E report '+Date.now();
+ await resident.locator('[name=type]').selectOption('WATER_LEAK');
+ await resident.locator('[name=title]').fill(title);
+ await resident.locator('textarea[name=description]').fill('Утечка воды, проверка полного рабочего процесса');
+ await resident.locator('[name=address]').fill('Актау, 12 микрорайон');
+ await resident.locator('[name=photo]').setInputFiles(photo);
+ await resident.getByRole('button',{name:'Отправить обращение',exact:true}).click();
+ await resident.waitForURL('**/incidents/**',{waitUntil:'domcontentloaded'});
+ const incidentUrl=resident.url().split('?')[0],id=incidentUrl.split('/').pop();
+ const initial=await db.incident.findUniqueOrThrow({where:{id},include:{media:true}});
+ assert.equal(initial.media.length,1);assert.equal(initial.media[0].stage,'BEFORE');
+ await operator.getByText(title,{exact:true}).waitFor();
+ console.log('PASS Resident photo → DB → Operator SSE');
+ await operator.goto(incidentUrl,{waitUntil:'domcontentloaded'});
+ await operator.getByRole('button',{name:'Подтвердить',exact:true}).click();
+ const suggestion=operator.locator('.recommendation').first();await suggestion.waitFor();
+ const workerId=await suggestion.locator('[name=workerId]').inputValue();
+ const w=await db.user.findUniqueOrThrow({where:{id:workerId},include:{workerProfile:true}});
+ assert.equal(w.workerProfile.specialization,'WATER');
+ assert.equal(await db.workerTask.count({where:{workerId,status:{not:'COMPLETED'}}}),0,'Use a fresh seeded E2E DB so the recommended worker is free');
+ const worker=await login(w.email,'worker');
+ await suggestion.getByRole('button',{name:'Подтвердить назначение',exact:true}).click();
+ await operator.getByText('Назначено',{exact:true}).first().waitFor();
+ await worker.bringToFront();
+ try{await worker.getByText(title,{exact:true}).waitFor();}catch(e){console.log('WORKER STATE',await worker.locator('body').innerText());console.log('EVENTS',await db.realtimeEvent.findMany({where:{userId:workerId},take:5,orderBy:{id:'desc'}}));throw e;}
+ const task=await db.workerTask.findUniqueOrThrow({where:{incidentId:id}});
+ assert.ok(task.plannedStart&&task.plannedEnd);assert.equal(task.position,0);
+ console.log('PASS recommendation specialization → assignment → Worker SSE/schedule');
+ const route=await worker.context().newPage();await route.goto(url+'/worker/route/'+id,{waitUntil:'domcontentloaded'});
+ await route.getByText(/OSRM, без учёта пробок/).waitFor({timeout:20000});await route.close();
+ console.log('PASS real road route / distance / ETA');
+ await worker.goto(incidentUrl,{waitUntil:'domcontentloaded'});
+ for(const name of ['Принять задачу','Выехал','На месте'])await worker.getByRole('button',{name,exact:true}).click();
+ const completion=worker.locator('form').filter({has:worker.locator('input[name=status][value=COMPLETED]')});
+ await completion.locator('textarea[name=comment]').fill('Течь устранена, соединение проверено');
+ await completion.locator('[name=photo]').setInputFiles(photo);
+ await completion.getByRole('button',{name:'Завершить с фото',exact:true}).click();
+ await resident.getByText('Решено',{exact:true}).first().waitFor();
+ await operator.getByText('Решено',{exact:true}).first().waitFor();
+ await operator.getByAltText('Фото После').waitFor();
+ assert.equal(await resident.getByText('Confidence',{exact:true}).count(),0);
+ const final=await db.incident.findUniqueOrThrow({where:{id},include:{media:true,task:true}});
+ assert.equal(final.status,'RESOLVED');assert.equal(final.media.filter(m=>m.stage==='AFTER').length,1);
+ assert.ok(final.task.completionComment&&final.task.startedAt&&final.task.completedAt);
+ await operator.screenshot({path:'test-results/before-after.png',fullPage:true});
+ const stranger=await login('resident2@demo.kz','resident');
+ // Next can send HTTP 200 before streamed notFound renders; verify rendered denial and no data.
+ await stranger.goto(incidentUrl,{waitUntil:'domcontentloaded'});
+ await stranger.getByText('404',{exact:true}).waitFor();assert.equal(await stranger.getByText(title,{exact:true}).count(),0);
+ const media=await stranger.request.get(url+initial.media[0].url);assert.equal(media.status(),403);
+ assert.deepEqual(errors,[]);
+ console.log('PASS completion BEFORE/AFTER → Resident SSE resolved; privacy');
+}catch(error){console.error('E2E FAILED',error);throw error;}finally{await Promise.race([browser.close(),new Promise(r=>setTimeout(r,5000))]);await db.$disconnect();}

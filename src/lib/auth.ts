@@ -21,7 +21,7 @@ export async function currentUser() {
   try {
     const { payload } = await jwtVerify(token, key());
     if (!payload.sub) return null;
-    return await db.user.findUnique({ where: { id: payload.sub }, select: { id: true, name: true, email: true, role: true, lat: true, lng: true } });
+    return await db.user.findFirst({ where: { id: payload.sub, isActive: true }, select: { id: true, name: true, email: true, role: true, lat: true, lng: true } });
   } catch { return null; }
 }
 export async function requireUser(role?: Role) {

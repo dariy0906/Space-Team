@@ -13,7 +13,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{name
   if (!media) return new NextResponse('Not found', { status:404 });
   const incident = media.incident;
   if (user.role==='WORKER' && incident.assignedWorkerId!==user.id) return new NextResponse('Forbidden', { status:403 });
-  if (user.role==='RESIDENT' && incident.reporterId!==user.id && incident.source==='RESIDENT') return new NextResponse('Forbidden', { status:403 });
+  if (user.role==='RESIDENT' && incident.reporterId!==user.id) return new NextResponse('Forbidden', { status:403 });
   try { const bytes = await readFile(path.join(process.cwd(),'data','uploads',name)); const type = name.endsWith('.png')?'image/png':name.endsWith('.webp')?'image/webp':'image/jpeg'; return new NextResponse(bytes,{headers:{'Content-Type':type,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}}); }
   catch { return new NextResponse('Not found',{status:404}); }
 }

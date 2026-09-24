@@ -1,17 +1,27 @@
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "postgresql"
-  url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
 
 enum Role {
+  ADMIN
   RESIDENT
   WORKER
   OPERATOR
 }
+
 enum IncidentType {
+  SMOKE
+  FIGHT
+  STRONG_WIND
+  ROAD
+  LIGHTING
+  SAFETY
+  WASTE
   FIRE
   WATER_LEAK
   PERSON_FALL
@@ -19,20 +29,26 @@ enum IncidentType {
   CITIZEN_REPORT
   OTHER
 }
+
 enum IncidentSource {
+  SYSTEM
   CAMERA
   SENSOR
   DRONE
   RESIDENT
   MANUAL
 }
+
 enum Severity {
   LOW
   MEDIUM
   HIGH
   CRITICAL
 }
+
 enum IncidentStatus {
+  WAITING_OPERATOR
+  REOPENED
   NEW
   CONFIRMED
   ASSIGNED
@@ -40,6 +56,7 @@ enum IncidentStatus {
   RESOLVED
   REJECTED
 }
+
 enum TaskStatus {
   ASSIGNED
   ACCEPTED
@@ -47,119 +64,320 @@ enum TaskStatus {
   ON_SITE
   COMPLETED
 }
+
 enum MediaType {
   IMAGE
   VIDEO
 }
 
 model User {
-  id String @id @default(uuid()) @db.Uuid
-  name String
-  email String @unique
-  passwordHash String
-  role Role
-  lat Float?
-  lng Float?
-  isOnline Boolean @default(false)
-  reportedIncidents Incident[] @relation("Reporter")
-  assignedIncidents Incident[] @relation("AssignedWorker")
-  history IncidentHistory[]
-  tasks WorkerTask[]
-  locations WorkerLocation[]
-  reports CitizenReport[]
-  createdAt DateTime @default(now())
+  id                String            @id @default(uuid()) @db.Uuid
+  name              String
+  email             String            @unique
+  passwordHash      String
+  role              Role
+  lat               Float?
+  lng               Float?
+  isOnline          Boolean           @default(false)
+  isActive          Boolean           @default(true)
+  isDemo            Boolean           @default(false)
+  workerProfile     WorkerProfile?
+  residentProfile   ResidentProfile?
+  operatorProfile   OperatorProfile?
+  operatedIncidents Incident[]        @relation("AssignedOperator")
+  notifications     Notification[]
+  reportedIncidents Incident[]        @relation("Reporter")
+  assignedIncidents Incident[]        @relation("AssignedWorker")
+  history           IncidentHistory[]
+  tasks             WorkerTask[]
+  locations         WorkerLocation[]
+  reports           CitizenReport[]
+  createdAt         DateTime          @default(now())
 }
+
 model Incident {
-  id String @id @default(uuid()) @db.Uuid
-  title String
-  description String @default("")
-  type IncidentType
-  source IncidentSource
-  isDemo Boolean @default(false)
-  severity Severity
-  confidence Float?
-  lat Float
-  lng Float
-  address String
-  district String?
-  status IncidentStatus @default(NEW)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  reporterId String? @db.Uuid
-  assignedWorkerId String? @db.Uuid
-  reporter User? @relation("Reporter", fields: [reporterId], references: [id])
-  assignedWorker User? @relation("AssignedWorker", fields: [assignedWorkerId], references: [id])
-  media IncidentMedia[]
-  history IncidentHistory[]
-  task WorkerTask?
-  citizenReport CitizenReport?
+  id                 String               @id @default(uuid()) @db.Uuid
+  title              String
+  description        String               @default("")
+  type               IncidentType
+  source             IncidentSource
+  isDemo             Boolean              @default(false)
+  severity           Severity
+  confidence         Float?
+  lat                Float
+  lng                Float
+  address            String
+  district           String?
+  status             IncidentStatus       @default(NEW)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  reporterId         String?              @db.Uuid
+  assignedWorkerId   String?              @db.Uuid
+  assignedOperatorId String?              @db.Uuid
+  claimExpiresAt     DateTime?
+  claimedAt          DateTime?
+  version            Int                  @default(0)
+  metadata           Json?
+  cameraId           String?              @db.Uuid
+  camera             Camera?              @relation(fields: [cameraId], references: [id])
+  assignedOperator   User?                @relation("AssignedOperator", fields: [assignedOperatorId], references: [id])
+  assignments        IncidentAssignment[]
+  violations         WorkerViolation[]
+  reporter           User?                @relation("Reporter", fields: [reporterId], references: [id])
+  assignedWorker     User?                @relation("AssignedWorker", fields: [assignedWorkerId], references: [id])
+  media              IncidentMedia[]
+  history            IncidentHistory[]
+  task               WorkerTask?
+  citizenReport      CitizenReport?
+
   @@index([status, createdAt])
   @@index([reporterId])
 }
+
 model IncidentMedia {
-  id String @id @default(uuid()) @db.Uuid
-  incidentId String @db.Uuid
-  type MediaType
-  url String
-  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  id         String    @id @default(uuid()) @db.Uuid
+  incidentId String    @db.Uuid
+  type       MediaType
+  url        String
+  stage      String    @default("BEFORE")
+  createdAt  DateTime  @default(now())
+  incident   Incident  @relation(fields: [incidentId], references: [id], onDelete: Cascade)
 }
+
 model IncidentHistory {
-  id String @id @default(uuid()) @db.Uuid
-  incidentId String @db.Uuid
-  action String
-  comment String?
+  id             String          @id @default(uuid()) @db.Uuid
+  incidentId     String          @db.Uuid
+  action         String
+  isPublic       Boolean         @default(false)
+  comment        String?
   previousStatus IncidentStatus?
-  newStatus IncidentStatus?
-  actorId String? @db.Uuid
-  createdAt DateTime @default(now())
-  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
-  actor User? @relation(fields: [actorId], references: [id])
+  newStatus      IncidentStatus?
+  actorId        String?         @db.Uuid
+  createdAt      DateTime        @default(now())
+  incident       Incident        @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  actor          User?           @relation(fields: [actorId], references: [id])
 }
+
 model WorkerTask {
-  id String @id @default(uuid()) @db.Uuid
-  workerId String @db.Uuid
-  incidentId String @unique @db.Uuid
-  status TaskStatus @default(ASSIGNED)
-  assignedAt DateTime @default(now())
-  acceptedAt DateTime?
-  completedAt DateTime?
-  worker User @relation(fields: [workerId], references: [id])
-  incident Incident @relation(fields: [incidentId], references: [id])
+  id                String     @id @default(uuid()) @db.Uuid
+  workerId          String     @db.Uuid
+  incidentId        String     @unique @db.Uuid
+  status            TaskStatus @default(ASSIGNED)
+  assignedAt        DateTime   @default(now())
+  acceptedAt        DateTime?
+  completedAt       DateTime?
+  startedAt         DateTime?
+  completionComment String?
+  position          Int        @default(0)
+  plannedStart      DateTime?
+  plannedEnd        DateTime?
+  route             RoutePlan?
+  worker            User       @relation(fields: [workerId], references: [id])
+  incident          Incident   @relation(fields: [incidentId], references: [id])
 }
+
 model WorkerLocation {
-  id String @id @default(uuid()) @db.Uuid
-  workerId String @db.Uuid
-  lat Float
-  lng Float
+  id        String   @id @default(uuid()) @db.Uuid
+  workerId  String   @db.Uuid
+  lat       Float
+  lng       Float
   createdAt DateTime @default(now())
-  worker User @relation(fields: [workerId], references: [id])
+  worker    User     @relation(fields: [workerId], references: [id])
 }
+
 model CitizenReport {
-  id String @id @default(uuid()) @db.Uuid
-  userId String @db.Uuid
-  incidentId String @unique @db.Uuid
-  user User @relation(fields: [userId], references: [id])
-  incident Incident @relation(fields: [incidentId], references: [id])
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  incidentId String   @unique @db.Uuid
+  user       User     @relation(fields: [userId], references: [id])
+  incident   Incident @relation(fields: [incidentId], references: [id])
 }
+
 model Camera {
-  id String @id @default(uuid()) @db.Uuid
-  name String
-  lat Float
-  lng Float
-  status String @default("ONLINE")
+  id        String          @id @default(uuid()) @db.Uuid
+  name      String
+  lat       Float
+  lng       Float
+  status    String          @default("ONLINE")
+  isDemo    Boolean         @default(true)
+  sessions  CameraSession[]
+  incidents Incident[]
 }
+
 model Sensor {
-  id String @id @default(uuid()) @db.Uuid
-  name String
-  type String
-  lat Float
-  lng Float
-  status String @default("ONLINE")
+  id       String          @id @default(uuid()) @db.Uuid
+  name     String
+  type     String
+  lat      Float
+  lng      Float
+  status   String          @default("ONLINE")
+  readings SensorReading[]
 }
+
 model Drone {
-  id String @id @default(uuid()) @db.Uuid
-  name String
-  lat Float
-  lng Float
+  id     String @id @default(uuid()) @db.Uuid
+  name   String
+  lat    Float
+  lng    Float
   status String @default("STANDBY")
+}
+
+enum Specialization {
+  WATER
+  FIRE
+  ELECTRICITY
+  ROAD
+  RESCUE
+  SANITATION
+  OTHER
+}
+
+model ResidentProfile {
+  userId String @id @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model OperatorProfile {
+  userId  String  @id @db.Uuid
+  onShift Boolean @default(true)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model WorkerProfile {
+  userId         String           @id @db.Uuid
+  specialization Specialization   @default(OTHER)
+  onShift        Boolean          @default(true)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schedules      WorkerSchedule[]
+}
+
+model WorkerSchedule {
+  id       String        @id @default(uuid()) @db.Uuid
+  workerId String        @db.Uuid
+  day      DateTime      @db.Date
+  startsAt DateTime
+  endsAt   DateTime
+  worker   WorkerProfile @relation(fields: [workerId], references: [userId], onDelete: Cascade)
+
+  @@unique([workerId, day])
+}
+
+model IncidentAssignment {
+  id         String   @id @default(uuid()) @db.Uuid
+  incidentId String   @db.Uuid
+  operatorId String   @db.Uuid
+  workerId   String?  @db.Uuid
+  action     String
+  createdAt  DateTime @default(now())
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+}
+
+model WorkerViolation {
+  id         String   @id @default(uuid()) @db.Uuid
+  incidentId String   @db.Uuid
+  workerId   String   @db.Uuid
+  operatorId String   @db.Uuid
+  reason     String
+  createdAt  DateTime @default(now())
+  incident   Incident @relation(fields: [incidentId], references: [id])
+}
+
+model Notification {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  title     String
+  href      String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model RealtimeEvent {
+  id        BigInt   @id @default(autoincrement())
+  userId    String?  @db.Uuid
+  role      Role?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  actorId   String?  @db.Uuid
+  action    String
+  entityId  String
+  details   Json?
+  createdAt DateTime @default(now())
+}
+
+model PublicWarning {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String
+  description String
+  severity    Severity
+  lat         Float
+  lng         Float
+  isDemo      Boolean  @default(true)
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+}
+
+model RoutePlan {
+  id              String     @id @default(uuid()) @db.Uuid
+  taskId          String     @unique @db.Uuid
+  provider        String
+  geometry        Json
+  distanceMeters  Float
+  durationSeconds Float
+  createdAt       DateTime   @default(now())
+  task            WorkerTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model SensorReading {
+  id        String   @id @default(uuid()) @db.Uuid
+  sensorId  String   @db.Uuid
+  values    Json
+  isDemo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  sensor    Sensor   @relation(fields: [sensorId], references: [id], onDelete: Cascade)
+}
+
+model CameraSession {
+  id             String            @id @default(uuid()) @db.Uuid
+  cameraId       String            @db.Uuid
+  tokenHash      String            @unique
+  invitedBy      String            @db.Uuid
+  invitedEmail   String?
+  acceptedBy     String?           @db.Uuid
+  status         String            @default("INVITED")
+  expiresAt      DateTime
+  startedAt      DateTime?
+  disconnectedAt DateTime?
+  lastSeenAt     DateTime?
+  createdAt      DateTime          @default(now())
+  camera         Camera            @relation(fields: [cameraId], references: [id])
+  permission     CameraPermission?
+  signals        CameraSignal[]
+}
+
+model CameraPermission {
+  id          String        @id @default(uuid()) @db.Uuid
+  sessionId   String        @unique @db.Uuid
+  consentText String
+  acceptedAt  DateTime      @default(now())
+  session     CameraSession @relation(fields: [sessionId], references: [id])
+}
+
+model CameraSignal {
+  id        Int           @id @default(autoincrement())
+  sessionId String        @db.Uuid
+  peerId    String
+  sender    String
+  payload   Json
+  createdAt DateTime      @default(now())
+  session   CameraSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, id])
 }
