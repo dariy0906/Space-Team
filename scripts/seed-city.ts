@@ -41,9 +41,16 @@ export async function seedCity(db: PrismaClient, byEmail: Map<string, string>) {
     await db.cityFacility.createMany({ data: file.items.map(f => ({ kind: f.kind, name: f.name, address: f.address, lat: f.lat, lng: f.lng, isDemo: false })) });
   }
 
-  if ((await db.camera.count()) === 0) {
+  if ((await db.camera.count({ where: { name: { startsWith: 'AKT-' } } })) === 0) {
     const points = roadCameraPoints(8);
-    for (const [i, p] of points.entries()) await db.camera.create({ data: { name: `AKT-0${11 + i}`, lat: p.lat, lng: p.lng, isDemo: true } });
+    // В базах, засеянных раньше, есть демо-камеры «Camera #NN» в случайных точках. Их не удаляем
+    // (на них могут ссылаться события и сессии), а переносим на дороги под именами AKT-0NN.
+    const legacy = await db.camera.findMany({ where: { isDemo: true, name: { startsWith: 'Camera #' } }, orderBy: { name: 'asc' }, take: points.length });
+    for (const [i, p] of points.entries()) {
+      const data = { name: `AKT-0${11 + i}`, lat: p.lat, lng: p.lng, isDemo: true };
+      if (legacy[i]) await db.camera.update({ where: { id: legacy[i].id }, data });
+      else await db.camera.create({ data });
+    }
   }
 
   if ((await db.sensor.count({ where: { type: AIR_SENSOR_TYPE } })) === 0) {
