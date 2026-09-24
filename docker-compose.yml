@@ -22,6 +22,8 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-aqtau}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-aqtau_safe}?schema=public
       WATCHPACK_POLLING: "true"
+      # Время в интерфейсе — по Актау (UTC+5), а не UTC контейнера
+      TZ: ${TZ:-Asia/Aqtau}
     ports:
       - "127.0.0.1:${APP_PORT:-3000}:3000"
     volumes:
