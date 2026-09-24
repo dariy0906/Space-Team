@@ -21,7 +21,7 @@ async function login(email,role){
  const button=p.locator('button[name=email][value="'+email+'"]');
  await button.evaluate(el=>el.closest('details').open=true);
  await button.click();await p.waitForURL('**/'+role,{waitUntil:'domcontentloaded'});
- await p.getByText('● Live',{exact:true}).waitFor();console.log('READY',role);return p;
+ await p.locator('.realtime-state.online').waitFor();console.log('READY',role);return p;
 }
 try{
  const operator=await login('operator@demo.kz','operator'),resident=await login('resident@demo.kz','resident');

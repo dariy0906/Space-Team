@@ -22,6 +22,9 @@ const GLYPHS = 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf';
 // Без явного адреса worker MapLibre под Next.js отдаёт 404, и тогда не отрисовывается
 // ни один GeoJSON-слой: ни точки, ни кластеры, ни схема водопровода (см. scripts/copy-maplibre-worker.mjs).
 maplibregl.setWorkerUrl('/maplibre/maplibre-gl-worker.mjs');
+// По умолчанию MapLibre поднимает до 6 воркеров, и каждый загружает модуль на ~500 КБ по тем же
+// соединениям, что и запросы страницы. Для наших объёмов данных двух воркеров достаточно.
+maplibregl.setWorkerCount(2);
 
 // Подложки Esri: бесплатны, без ключа и с местными подписями. Тайлы CARTO с недавних пор
 // возвращают картинку с водяным знаком «API KEY REQUIRED», поэтому от них пришлось отказаться.
@@ -107,6 +110,28 @@ function pipeCollection(segments: PipeSegment[] = PIPE_NETWORK): GeoJSON.Feature
   };
 }
 
+const FIT_PADDING = { top: 70, bottom: 70, left: 60, right: 60 };
+const SINGLE_POINT_ZOOM = 14.2;
+
+/**
+ * Камера, с которой карта открывается. Считаем её сразу по точкам: если открыть карту на обзоре
+ * города и потом «долететь» до точки, тайлы грузятся на каждом промежуточном зуме — в 9 раз
+ * больше запросов, чем нужно (замерено: 181 против 20 на странице события).
+ */
+function initialCamera(points: MapPoint[], route?: [number, number][]): Pick<maplibregl.MapOptions, 'center' | 'zoom' | 'bounds' | 'fitBoundsOptions'> {
+  if (route?.length) {
+    const bounds = new maplibregl.LngLatBounds();
+    for (const coord of route) bounds.extend(coord);
+    return { bounds, fitBoundsOptions: { padding: 60, maxZoom: 15 } };
+  }
+  const bounds = boundsOf(points);
+  if (!bounds) return { center: AKTAU_CENTER, zoom: AKTAU_ZOOM };
+  const ne = bounds.getNorthEast();
+  const sw = bounds.getSouthWest();
+  if (ne.lat === sw.lat && ne.lng === sw.lng) return { center: bounds.getCenter(), zoom: SINGLE_POINT_ZOOM };
+  return { bounds, fitBoundsOptions: { padding: FIT_PADDING, maxZoom: 15.5 } };
+}
+
 /** Прямоугольник, охватывающий все точки; null — если точек нет. */
 function boundsOf(points: MapPoint[]): maplibregl.LngLatBounds | null {
   if (points.length === 0) return null;
@@ -158,6 +183,8 @@ export default function CityMap({ points, route, className = '', controls = true
   const popupRef = useRef<maplibregl.Popup | null>(null);
   const pickRef = useRef(onPick);
   const fitKeyRef = useRef('');
+  const initial = useRef({ points, route, autoFit });
+  initial.current = { points, route, autoFit };
   const pipeFittedRef = useRef(false);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
@@ -224,9 +251,9 @@ export default function CityMap({ points, route, className = '', controls = true
     try {
       map = new maplibregl.Map({
         container: container.current,
-        center: AKTAU_CENTER,
-        zoom: AKTAU_ZOOM,
-        pitch: 28,
+        ...(initial.current.autoFit || initial.current.route?.length ? initialCamera(initial.current.points, initial.current.route) : { center: AKTAU_CENTER, zoom: AKTAU_ZOOM }),
+        // Без наклона: при наклоне в кадр попадает горизонт, и тайлов грузится в разы больше.
+        pitch: 0,
         maxBounds: AKTAU_BOUNDS,
         attributionControl: { compact: true },
         style: {
@@ -272,7 +299,10 @@ export default function CityMap({ points, route, className = '', controls = true
 
       map.addLayer({ id: 'heat', type: 'heatmap', source: 'points', layout: { visibility: 'none' }, paint: { 'heatmap-weight': ['get', 'weight'], 'heatmap-intensity': 1.2, 'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 10, 26, 16, 60], 'heatmap-opacity': 0.75, 'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'], 0, 'rgba(0,0,0,0)', 0.2, 'rgba(33,150,224,0.35)', 0.45, 'rgba(31,163,139,0.5)', 0.7, 'rgba(240,172,67,0.7)', 1, 'rgba(223,79,98,0.85)'] } });
 
-      map.addLayer({ id: 'marker-pulse', type: 'circle', source: 'points', filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'urgent'], 1]], paint: { 'circle-color': ['get', 'color'], 'circle-opacity': 0.18, 'circle-radius': 26 } });
+      // Статичный ореол вокруг срочных точек. Анимировать его нельзя: каждое изменение стиля
+      // перерисовывает весь WebGL-холст, и непрерывная пульсация загружала главный поток так,
+      // что переходы после действий оператора не успевали примениться.
+      map.addLayer({ id: 'marker-pulse', type: 'circle', source: 'points', filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'urgent'], 1]], paint: { 'circle-color': ['get', 'color'], 'circle-opacity': 0.2, 'circle-radius': 27, 'circle-blur': 0.35 } });
       map.addLayer({ id: 'markers', type: 'circle', source: 'points', filter: ['!', ['has', 'point_count']], paint: { 'circle-color': ['get', 'color'], 'circle-radius': ['get', 'radius'], 'circle-stroke-color': '#fff', 'circle-stroke-width': 2.5 } });
       map.addLayer({ id: 'marker-icons', type: 'symbol', source: 'points', filter: ['!', ['has', 'point_count']], layout: { 'icon-image': ['get', 'icon'], 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-size': 1 } });
 
@@ -349,6 +379,8 @@ export default function CityMap({ points, route, className = '', controls = true
         pick(Number(event.lngLat.lat.toFixed(6)), Number(event.lngLat.lng.toFixed(6)));
       });
 
+      // Камера уже выставлена по этим точкам при создании карты.
+      fitKeyRef.current = initial.current.points.map(p => `${p.id}:${p.lat.toFixed(5)}:${p.lng.toFixed(5)}`).join('|');
       setReady(true);
     });
 
@@ -411,8 +443,8 @@ export default function CityMap({ points, route, className = '', controls = true
     const bounds = boundsOf(points);
     if (!bounds) return;
     const single = bounds.getNorthEast().lat === bounds.getSouthWest().lat && bounds.getNorthEast().lng === bounds.getSouthWest().lng;
-    if (single) map.easeTo({ center: bounds.getCenter(), zoom: Math.max(map.getZoom(), 14.2), duration: 700 });
-    else map.fitBounds(bounds, { padding: { top: 70, bottom: 70, left: 60, right: 60 }, maxZoom: 15.5, duration: 700 });
+    if (single) map.easeTo({ center: bounds.getCenter(), zoom: Math.max(map.getZoom(), SINGLE_POINT_ZOOM), duration: 500 });
+    else map.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: 15.5, duration: 500 });
   }, [fitKey, points, ready, autoFit, route]);
 
   useEffect(() => {
@@ -427,7 +459,7 @@ export default function CityMap({ points, route, className = '', controls = true
     source.setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: route }, properties: {} });
     const bounds = new maplibregl.LngLatBounds();
     for (const coord of route) bounds.extend(coord);
-    map.fitBounds(bounds, { padding: 60, maxZoom: 15 });
+    map.fitBounds(bounds, { padding: 60, maxZoom: 15, duration: 0 });
   }, [route, ready]);
 
   useEffect(() => {
@@ -448,20 +480,6 @@ export default function CityMap({ points, route, className = '', controls = true
     map.getCanvas().style.cursor = onPick ? 'crosshair' : '';
   }, [onPick, ready]);
 
-  // Мягкая пульсация вокруг критичных событий — считается по времени, без перерисовки React.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !ready) return;
-    let frame = 0;
-    const tick = (time: number) => {
-      const radius = 24 + Math.sin(time / 420) * 8;
-      map.setPaintProperty('marker-pulse', 'circle-radius', radius);
-      map.setPaintProperty('marker-pulse', 'circle-opacity', 0.26 - Math.sin(time / 420) * 0.1);
-      frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [ready]);
 
   function pickBasemap(id: BasemapId) {
     basemapPinned.current = true;
