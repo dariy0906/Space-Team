@@ -87,7 +87,7 @@ export async function seedCity(db: PrismaClient, byEmail: Map<string, string>) {
       data: {
         title: 'Глубокая яма на проезжей части', description: 'Яма примерно полметра, машины резко объезжают её по встречной.',
         type: 'POTHOLE', source: 'RESIDENT', severity: 'MEDIUM', status: 'NEW', isDemo: true,
-        lat: p.lat, lng: p.lng, address: `Рядом с камерой ${linkCamera.name}`, reporterId: residentId,
+        lat: p.lat, lng: p.lng, address: 'Проезжая часть, точка отмечена на карте', reporterId: residentId,
         citizenReport: { create: { userId: residentId } },
         history: { create: { action: 'Житель отправил обращение', newStatus: 'NEW', actorId: residentId, isPublic: true } },
       },

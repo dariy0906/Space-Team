@@ -13,6 +13,9 @@ import { distanceMeters } from './routing';
 export const ROAD_DETECTOR_LABEL = 'CV-детектор (эвристика)';
 /** Обнаружения и обращения ближе этого расстояния считаются одной и той же проблемой. */
 export const LINK_RADIUS_METERS = 30;
+// Кадр городской камеры может содержать прохожих и номера машин: он виден только сотрудникам,
+// даже если прикреплён к обращению жителя.
+export const CAMERA_FRAME_STAGE = 'CAMERA';
 const MAX_FRAME_BYTES = 3_000_000;
 const OPEN = { notIn: ['RESOLVED', 'REJECTED'] as ('RESOLVED' | 'REJECTED')[] };
 
@@ -45,6 +48,17 @@ export type RoadMetadata = {
   linkedIncidentIds?: string[];
 };
 
+// Ответ POST /api/road/analyze.
+export type RoadAnalyzeResult = {
+  error?: string;
+  analyzed?: boolean;
+  detections?: RoadDetection[];
+  detector?: string;
+  cameraName?: string;
+  incidentId?: string;
+  linked?: boolean;
+};
+
 const severityOrder: Severity[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 
 export function frameKind(type: string): 'jpg' | 'png' | 'webp' | null {
@@ -61,6 +75,9 @@ export async function analyzeRoadFrame(bytes: Buffer, contentType: string): Prom
     body: new Uint8Array(bytes),
     signal: AbortSignal.timeout(20000),
     cache: 'no-store',
+  }).catch((e: unknown) => {
+    const timeout = e instanceof Error && e.name === 'TimeoutError';
+    throw new Error(timeout ? 'CV-сервис не ответил за 20 секунд' : `CV-сервис недоступен (${base})`);
   });
   if (res.status === 401) throw new Error('CV-сервис отклонил ключ доступа (CV_SERVICE_KEY)');
   if (!res.ok) throw new Error('CV-сервис не смог обработать кадр');
@@ -106,7 +123,7 @@ export async function recordRoadDetections(input: { camera: Camera; frameUrl: st
           confidence: Math.max(existing.confidence ?? 0, best.score),
           severity: severityOrder.indexOf(severity) > severityOrder.indexOf(existing.severity) ? severity : existing.severity,
           metadata: { ...meta, cameraName: meta.cameraName ?? camera.name, detections: analysis.detections, cameraDetections: (meta.cameraDetections ?? 0) + 1, detector: analysis.detector, detectorKind: analysis.kind, locationPrecision: 'camera' } satisfies Prisma.InputJsonValue,
-          media: { create: { type: 'IMAGE', stage: 'BEFORE', url: frameUrl } },
+          media: { create: { type: 'IMAGE', stage: CAMERA_FRAME_STAGE, url: frameUrl } },
           history: { create: { action: `Повторное обнаружение камерой ${camera.name}`, comment: scoreText, actorId } },
         },
       });
@@ -136,7 +153,7 @@ export async function recordRoadDetections(input: { camera: Camera; frameUrl: st
         cameraId: camera.id,
         isDemo: camera.isDemo,
         metadata: metadata satisfies Prisma.InputJsonValue,
-        media: { create: { type: 'IMAGE', stage: 'BEFORE', url: frameUrl } },
+        media: { create: { type: 'IMAGE', stage: CAMERA_FRAME_STAGE, url: frameUrl } },
         history: { create: { action: 'Обнаружено камерой, ожидает проверки оператором', comment: scoreText, actorId, newStatus: 'NEW' } },
       },
     });

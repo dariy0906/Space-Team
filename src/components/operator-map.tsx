@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useState, type ComponentType } from 'react';
+import { useMemo, useState, type ComponentType, type CSSProperties } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowUpRight, Cctv, Construction, Crosshair, Droplets, Gauge, HardHat, Loader2, Mail, School, Siren, Sparkles, X } from 'lucide-react';
@@ -8,16 +8,16 @@ import type { CityLayers, LayerKey, LayerPoint } from '@/lib/city-layers';
 import { aqiCategories } from '@/lib/city';
 import { severityColor, severityLabel } from '@/lib/labels';
 
-const LAYERS: { key: LayerKey; label: string; icon: ComponentType<{ size?: number }> }[] = [
-  { key: 'critical', label: 'Критические', icon: Siren },
-  { key: 'road', label: 'Дороги и ямы', icon: Construction },
-  { key: 'reports', label: 'Обращения', icon: Mail },
-  { key: 'water', label: 'Вода', icon: Droplets },
-  { key: 'air', label: 'Воздух (AQI)', icon: Gauge },
-  { key: 'schools', label: 'Школы и больницы', icon: School },
-  { key: 'cameras', label: 'Камеры', icon: Cctv },
-  { key: 'workers', label: 'Бригады', icon: HardHat },
-  { key: 'other', label: 'Прочие события', icon: Sparkles },
+const LAYERS: { key: LayerKey; label: string; icon: ComponentType<{ size?: number }>; color: string }[] = [
+  { key: 'critical', label: 'Критические', icon: Siren, color: '#e5484d' },
+  { key: 'road', label: 'Дороги и ямы', icon: Construction, color: '#ef8a17' },
+  { key: 'reports', label: 'Обращения', icon: Mail, color: '#6366f1' },
+  { key: 'water', label: 'Вода', icon: Droplets, color: '#2b7bd6' },
+  { key: 'air', label: 'Воздух (AQI)', icon: Gauge, color: '#16a34a' },
+  { key: 'schools', label: 'Школы и больницы', icon: School, color: '#a855f7' },
+  { key: 'cameras', label: 'Камеры', icon: Cctv, color: '#64748b' },
+  { key: 'workers', label: 'Бригады', icon: HardHat, color: '#0d9488' },
+  { key: 'other', label: 'Прочие события', icon: Sparkles, color: '#94a3b8' },
 ];
 
 // Объектов фона много (около сотни школ и больниц) — по умолчанию их слой выключен,
@@ -69,8 +69,8 @@ export default function OperatorMap({ layers, available, locate = false }: { lay
   return (
     <div className="ops-map">
       <div className="ops-layers" role="group" aria-label="Слои карты">
-        {shownLayers.map(({ key, label, icon: Icon }) => (
-          <button key={key} type="button" className={`ops-layer ${off.has(key) ? '' : 'on'}`} aria-pressed={!off.has(key)} onClick={() => toggle(key)}>
+        {shownLayers.map(({ key, label, icon: Icon, color }) => (
+          <button key={key} type="button" className={`ops-layer ${off.has(key) ? '' : 'on'}`} style={{ '--layer': color } as CSSProperties} aria-pressed={!off.has(key)} onClick={() => toggle(key)}>
             <span className="ops-layer-check" aria-hidden="true" />
             <Icon size={15} />
             {label}

@@ -217,7 +217,7 @@ button { cursor: pointer; }
 .switch input:checked::after { transform: translateX(16px); }
 
 /* ══════════════ KPI и панели ══════════════ */
-.kpi-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 13px; margin-bottom: 18px; }
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 13px; margin-bottom: 18px; }
 .kpi {
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
   padding: 16px; box-shadow: var(--shadow-sm); position: relative; overflow: hidden;
@@ -308,7 +308,7 @@ button { cursor: pointer; }
 .dark .location-warning { color: #f2a0ad; }
 
 /* ══════════════ Карточки событий ══════════════ */
-.incident-list { padding: 12px; display: grid; gap: 10px; max-height: 560px; overflow: auto; }
+.incident-list { padding: 12px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; max-height: 560px; overflow: auto; }
 .incident-card { border: 1px solid var(--line); border-radius: var(--radius); padding: 13px; background: var(--surface); transition: border-color .16s, box-shadow .16s, transform .16s; }
 .incident-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow-sm); transform: translateY(-1px); }
 .incident-card-top { display: flex; gap: 11px; align-items: center; }
@@ -511,7 +511,8 @@ button { cursor: pointer; }
 .login-box .password-login-form { margin-top: 16px; }
 
 /* ══════════════ Адаптив ══════════════ */
-@media (max-width: 1400px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } .pipe-kpi { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 1400px) { .pipe-kpi { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 1180px) { .kpi-grid:not(.pipe-kpi) { grid-template-columns: repeat(4, 1fr); } }
 @media (max-width: 1100px) {
   .dashboard-grid, .content-grid { grid-template-columns: 1fr; }
   .pipe-kpi { grid-template-columns: repeat(2, 1fr); }
@@ -759,18 +760,23 @@ button { cursor: pointer; }
 
 /* ══════════════ Операционная карта ══════════════ */
 .ops-map { display: flex; flex-direction: column; }
-.ops-layers { display: flex; flex-wrap: wrap; gap: 7px; padding: 12px 14px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+.ops-layers { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
 .ops-layer {
-  display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; border-radius: 10px;
-  border: 1px solid var(--line-strong); background: var(--surface); color: var(--muted);
-  font-size: 11.5px; font-weight: 700; transition: all .15s;
+  --layer: var(--brand);
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px 5px 8px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+  font-size: 11px; font-weight: 700; transition: background .15s, border-color .15s, color .15s, opacity .15s;
 }
-.ops-layer:hover { border-color: var(--brand); color: var(--ink); }
-.ops-layer.on { border-color: var(--brand); color: var(--brand-ink); background: var(--brand-soft); }
-.ops-layer b { font-size: 10px; padding: 1px 6px; border-radius: 999px; background: var(--input); color: var(--muted); }
-.ops-layer.on b { background: color-mix(in srgb, var(--brand) 22%, transparent); color: var(--brand-ink); }
-.ops-layer-check { width: 13px; height: 13px; border-radius: 4px; border: 2px solid var(--line-strong); display: inline-block; transition: all .15s; }
-.ops-layer.on .ops-layer-check { background: var(--brand); border-color: var(--brand); box-shadow: inset 0 0 0 2px var(--surface); }
+.ops-layer svg { color: var(--muted); transition: color .15s; }
+.ops-layer:hover { border-color: var(--layer); color: var(--ink); }
+.ops-layer.on { border-color: color-mix(in srgb, var(--layer) 50%, transparent); background: color-mix(in srgb, var(--layer) 9%, var(--surface)); color: var(--ink); }
+.ops-layer.on svg { color: var(--layer); }
+.ops-layer b { font-size: 9.5px; min-width: 18px; text-align: center; padding: 1px 5px; border-radius: 999px; background: var(--input); color: var(--muted); }
+.ops-layer.on b { background: color-mix(in srgb, var(--layer) 16%, transparent); color: var(--ink); }
+.ops-layer-check { width: 7px; height: 7px; border-radius: 50%; background: var(--line-strong); flex-shrink: 0; transition: background .15s, box-shadow .15s; }
+.ops-layer.on .ops-layer-check { background: var(--layer); box-shadow: 0 0 0 3px color-mix(in srgb, var(--layer) 22%, transparent); }
+.ops-locate { color: var(--brand-ink); border-color: color-mix(in srgb, var(--brand) 40%, transparent); }
+.ops-locate svg { color: var(--brand); }
 
 .ops-stage { position: relative; }
 .ops-canvas .city-map, .ops-canvas .map-loading { height: 600px; }
@@ -823,7 +829,12 @@ button { cursor: pointer; }
 .road-controls { display: grid; gap: 13px; }
 .road-controls .subtle { line-height: 1.6; margin: 0; }
 .road-frame-image { position: relative; border-radius: var(--radius); overflow: hidden; background: #0b1622; }
-.road-frame-empty { height: 260px; border: 2px dashed var(--line-strong); border-radius: var(--radius); display: grid; place-content: center; justify-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+.road-frame-empty { height: 260px; border: 2px dashed var(--line-strong); border-radius: var(--radius); display: grid; place-content: center; justify-items: center; gap: 8px; color: var(--muted); font-size: 12px; cursor: pointer; transition: border-color .15s, background .15s, color .15s; }
+.road-frame-empty strong { color: var(--ink); font-size: 13px; }
+.road-frame-empty:hover, .road-frame.dragging .road-frame-empty { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-ink); }
+.road-frame.dragging .road-frame-image { outline: 3px dashed var(--brand); outline-offset: 3px; }
+.road-controls input[type=file] { padding: 7px; }
+.road-controls input[type=file]::file-selector-button { border: 0; border-radius: 8px; background: var(--brand-soft); color: var(--brand-ink); font: inherit; font-weight: 700; padding: 6px 12px; margin-right: 10px; cursor: pointer; }
 .road-box { position: absolute; border: 3px solid #ef8a17; border-radius: 6px; box-shadow: 0 0 0 9999px rgb(0 0 0 / 22%), 0 0 18px rgb(239 138 23 / 60%); animation: box-in .35s ease-out; }
 .road-box.sev-high, .road-box.sev-critical { border-color: #e03e3e; box-shadow: 0 0 0 9999px rgb(0 0 0 / 22%), 0 0 18px rgb(224 62 62 / 65%); }
 .road-box b { position: absolute; top: -26px; left: -3px; background: inherit; background: #ef8a17; color: #fff; font-size: 11px; padding: 3px 7px; border-radius: 6px 6px 6px 0; white-space: nowrap; }
@@ -848,8 +859,23 @@ button { cursor: pointer; }
   .pipeline-strip li::after { display: none; }
   .road-panel-body { grid-template-columns: 1fr; }
 }
+@media (max-width: 700px) {
+  .ops-layers { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .ops-layers::-webkit-scrollbar { display: none; }
+  .ops-layer { flex-shrink: 0; }
+  .ops-locate { order: -1; margin-left: 0; }
+}
 @media (max-width: 900px) {
   .ops-panel { position: static; width: auto; margin: 12px; box-shadow: var(--shadow); }
   .ops-canvas .city-map, .ops-canvas .map-loading { height: 440px; }
 }
 .ops-locate { margin-left: auto; }
+
+/* Телефон: кнопки поверх карты — одна прокручиваемая строка, чтобы не закрывать карту */
+@media (max-width: 640px) {
+  .map-toolbar { top: 8px; left: 8px; gap: 5px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; max-width: calc(100% - 60px); }
+  .map-toolbar::-webkit-scrollbar { display: none; }
+  .map-toolbar > * { flex-shrink: 0; }
+  .map-chip { padding: 6px 9px; gap: 5px; font-size: 10.5px; }
+  .map-basemaps button { padding: 5px 8px; font-size: 10.5px; }
+}

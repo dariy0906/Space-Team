@@ -56,7 +56,23 @@ try {
   const linked = await db.incident.findUniqueOrThrow({ where: { id: citizen.id }, include: { media: true, history: true } });
   assert.equal(linked.media.length, 1, 'кадр камеры добавлен к жалобе');
   assert.ok(linked.history.some(h => h.action.includes('AKT-014')));
+  assert.equal(linked.media[0].stage, 'CAMERA', 'кадр камеры помечен как служебный');
   console.log('PASS обнаружение камерой связано с жалобой жителя, дубля нет');
+
+  // Житель видит своё обращение, но не кадр городской камеры (на нём могут быть люди и номера машин)
+  const residentCtx = await browser.newContext({ serviceWorkers: 'block' });
+  await residentCtx.route(u => u.origin !== new URL(url).origin, r => r.abort());
+  const rp = await residentCtx.newPage();
+  await rp.goto(url + '/login', { waitUntil: 'domcontentloaded' });
+  const residentButton = rp.locator('button[name=email][value="resident@demo.kz"]');
+  await residentButton.evaluate(el => { const d = el.closest('details'); if (d) d.open = true; });
+  await residentButton.click();
+  await rp.waitForURL('**/resident', { waitUntil: 'domcontentloaded' });
+  assert.equal((await rp.request.get(url + linked.media[0].url)).status(), 403, 'житель не получает кадр камеры');
+  await rp.goto(url + '/incidents/' + citizen.id, { waitUntil: 'domcontentloaded' });
+  assert.equal(await rp.locator(`img[src*="${linked.media[0].url.split('/').pop()}"]`).count(), 0, 'кадр камеры не показан жителю');
+  await residentCtx.close();
+  console.log('PASS житель не видит кадр городской камеры в своём обращении');
 
   // 3. Подтверждение оператором -> событие уходит в общий workflow ремонта
   await p.goto(url + '/incidents/' + created.id, { waitUntil: 'domcontentloaded' });

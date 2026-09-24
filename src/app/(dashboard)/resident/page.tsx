@@ -5,12 +5,13 @@ import ReportCard from '@/components/report-card';
 import { requireUser } from '@/lib/auth';
 import { buildCityLayers } from '@/lib/city-layers';
 import { db } from '@/lib/db';
+import { CAMERA_FRAME_STAGE } from '@/lib/road';
 export const dynamic = 'force-dynamic';
 
 export default async function Resident() {
   const u = await requireUser('RESIDENT');
   const [reports, warnings, layers] = await Promise.all([
-    db.incident.findMany({ where: { reporterId: u.id }, include: { media: true }, orderBy: { createdAt: 'desc' }, take: 5 }),
+    db.incident.findMany({ where: { reporterId: u.id }, include: { media: { where: { stage: { not: CAMERA_FRAME_STAGE } } } }, orderBy: { createdAt: 'desc' }, take: 5 }),
     db.publicWarning.findMany({ where: { expiresAt: { gt: new Date() } }, orderBy: { createdAt: 'desc' } }),
     // Житель видит публичные городские проблемы и свои обращения; чужие обращения — нет.
     buildCityLayers('resident', u.id),
