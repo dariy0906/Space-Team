@@ -5,12 +5,12 @@ import type { GeoJSONSource, Map as MlMap, RasterTileSource } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { severityColor, severityLabel, typeLabel } from '@/lib/labels';
 import { PIPE_NETWORK, pipeConditionColor, pipeConditionLabel, pipeKindLabel, type PipeSegment } from '@/lib/pipe-network';
-import { kindColor, kindLabel, type MapPoint, type MapPointKind } from '@/lib/map-kinds';
+import { kindColor, kindLabel, type MapPoint, type MapPointKind, type MapZone } from '@/lib/map-kinds';
 import { TypeGlyph, kindGlyph, typeGlyph } from './icons';
 import { ICONS, type IconNode } from '@/lib/icon-paths';
 import type { IncidentType, Severity } from '@prisma/client';
 
-export type { MapPoint, MapPointKind } from '@/lib/map-kinds';
+export type { MapPoint, MapPointKind, MapZone } from '@/lib/map-kinds';
 
 const AKTAU_CENTER: [number, number] = [51.174, 43.653];
 const AKTAU_ZOOM = 11.5;
@@ -72,6 +72,9 @@ function pointColor(point: MapPoint): string {
   return point.severity ? severityColor[point.severity] : kindColor[point.kind];
 }
 
+/** Объекты фона: мелкие маркеры без кластеризации, чтобы не смешиваться с событиями. */
+const overlayKinds = new Set<MapPointKind>(['school', 'kindergarten', 'hospital', 'camera']);
+
 function feature(point: MapPoint): GeoJSON.Feature<GeoJSON.Point> {
   return {
     type: 'Feature',
@@ -86,8 +89,9 @@ function feature(point: MapPoint): GeoJSON.Feature<GeoJSON.Point> {
       severity: point.severity ?? '',
       typeLabel: point.type ? typeLabel[point.type] : kindLabel[point.kind],
       icon: point.type ? `type-${point.type}` : `kind-${point.kind}`,
-      color: pointColor(point),
-      radius: point.severity === 'CRITICAL' ? 17 : point.kind === 'incident' ? 15 : 12,
+      color: point.color ?? pointColor(point),
+      label: point.label ?? '',
+      radius: point.severity === 'CRITICAL' ? 17 : point.kind === 'incident' ? 15 : point.kind === 'air' ? 14 : overlayKinds.has(point.kind) ? 9 : 12,
       urgent: point.severity === 'CRITICAL' || point.severity === 'HIGH' ? 1 : 0,
       weight: point.severity === 'CRITICAL' ? 1 : point.severity === 'HIGH' ? 0.75 : point.severity === 'MEDIUM' ? 0.5 : 0.3,
     },
@@ -172,12 +176,24 @@ export type CityMapProps = {
   lockPipes?: boolean;
   /** Подложка при открытии: на схеме водопровода удобнее светлая. */
   defaultBasemap?: BasemapId;
+  /** Объекты фона (школы, камеры, станции): не кластеризуются и рисуются под событиями. */
+  overlays?: MapPoint[];
+  /** Зоны: отключение воды, оценка переноса загрязнения. */
+  zones?: MapZone[];
+  /** Клик по маркеру открывает боковую панель вместо всплывающей карточки. */
+  onSelect?: (id: string) => void;
+  selectedId?: string | null;
+  /** Легенда-фильтр по категориям под картой. */
+  typeLegend?: boolean;
 };
+
+const EMPTY_POINTS: MapPoint[] = [];
+const EMPTY_ZONES: MapZone[] = [];
 
 /** Имя, под которым пропсы карты импортируют остальные модули. */
 export type MapProps = CityMapProps;
 
-export default function CityMap({ points, route, className = '', controls = true, defaultPipes = false, cluster = true, autoFit = true, onPick, pipes, lockPipes = false, defaultBasemap = 'streets' }: CityMapProps) {
+export default function CityMap({ points, route, className = '', controls = true, defaultPipes = false, cluster = true, autoFit = true, onPick, pipes, lockPipes = false, defaultBasemap = 'streets', overlays = EMPTY_POINTS, zones = EMPTY_ZONES, onSelect, selectedId = null, typeLegend = true }: CityMapProps) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
   const popupRef = useRef<maplibregl.Popup | null>(null);
@@ -198,6 +214,8 @@ export default function CityMap({ points, route, className = '', controls = true
   const [hidden, setHidden] = useState<Set<string>>(new Set());
 
   pickRef.current = onPick;
+  const selectRef = useRef(onSelect);
+  selectRef.current = onSelect;
 
   // Сколько точек каждой категории пришло — из этого строится легенда-фильтр под картой.
   const byType = useMemo(() => {
@@ -295,6 +313,15 @@ export default function CityMap({ points, route, className = '', controls = true
       map.addLayer({ id: 'pipes-casing', type: 'line', source: 'pipes', layout: { 'line-cap': 'round', 'line-join': 'round', visibility: 'none' }, paint: { 'line-color': '#0b1f31', 'line-opacity': 0.35, 'line-width': ['interpolate', ['linear'], ['zoom'], 10, ['*', ['get', 'width'], 0.7], 16, ['*', ['get', 'width'], 2.4]] } });
       map.addLayer({ id: 'pipes', type: 'line', source: 'pipes', layout: { 'line-cap': 'round', 'line-join': 'round', visibility: 'none' }, paint: { 'line-color': ['get', 'color'], 'line-opacity': ['case', ['==', ['get', 'type'], 'trunk'], 0.95, 0.7], 'line-width': ['interpolate', ['linear'], ['zoom'], 10, ['*', ['get', 'width'], 0.5], 16, ['*', ['get', 'width'], 1.9]], 'line-dasharray': [1, 0] } });
 
+      map.addSource('zones', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      map.addLayer({ id: 'zone-fill', type: 'fill', source: 'zones', paint: { 'fill-color': ['get', 'color'], 'fill-opacity': ['case', ['==', ['get', 'kind'], 'water'], 0.16, 0.12] } });
+      map.addLayer({ id: 'zone-line', type: 'line', source: 'zones', paint: { 'line-color': ['get', 'color'], 'line-width': 2, 'line-opacity': 0.8 } });
+
+      map.addSource('overlays', { type: 'geojson', data: pointCollection([]) });
+      map.addLayer({ id: 'overlay-markers', type: 'circle', source: 'overlays', paint: { 'circle-color': ['get', 'color'], 'circle-radius': ['get', 'radius'], 'circle-stroke-color': '#fff', 'circle-stroke-width': 2 } });
+      map.addLayer({ id: 'overlay-icons', type: 'symbol', source: 'overlays', layout: { 'icon-image': ['get', 'icon'], 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-size': ['case', ['==', ['get', 'kind'], 'air'], 0.9, 0.62] } });
+      map.addLayer({ id: 'overlay-labels', type: 'symbol', source: 'overlays', filter: ['!=', ['get', 'label'], ''], layout: { 'text-field': ['get', 'label'], 'text-font': ['Noto Sans Bold'], 'text-size': 12, 'text-offset': [0, -1.9], 'text-allow-overlap': true }, paint: { 'text-color': ['get', 'color'], 'text-halo-color': '#fff', 'text-halo-width': 2 } });
+
       map.addSource('points', { type: 'geojson', data: pointCollection([]), cluster, clusterRadius: 48, clusterMaxZoom: 13 });
 
       map.addLayer({ id: 'heat', type: 'heatmap', source: 'points', layout: { visibility: 'none' }, paint: { 'heatmap-weight': ['get', 'weight'], 'heatmap-intensity': 1.2, 'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 10, 26, 16, 60], 'heatmap-opacity': 0.75, 'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'], 0, 'rgba(0,0,0,0)', 0.2, 'rgba(33,150,224,0.35)', 0.45, 'rgba(31,163,139,0.5)', 0.7, 'rgba(240,172,67,0.7)', 1, 'rgba(223,79,98,0.85)'] } });
@@ -309,18 +336,25 @@ export default function CityMap({ points, route, className = '', controls = true
       map.addLayer({ id: 'clusters', type: 'circle', source: 'points', filter: ['has', 'point_count'], paint: { 'circle-color': ['step', ['get', 'point_count'], '#0f9aa8', 10, '#0d7d96', 25, '#123b59'], 'circle-radius': ['step', ['get', 'point_count'], 19, 10, 24, 25, 30], 'circle-stroke-color': '#fff', 'circle-stroke-width': 2.5, 'circle-opacity': 0.94 } });
       map.addLayer({ id: 'cluster-count', type: 'symbol', source: 'points', filter: ['has', 'point_count'], layout: { 'text-field': ['get', 'point_count_abbreviated'], 'text-font': ['Noto Sans Bold'], 'text-size': 13 }, paint: { 'text-color': '#fff' } });
 
+      map.addSource('selected', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      map.addLayer({ id: 'selected-ring', type: 'circle', source: 'selected', paint: { 'circle-radius': 24, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': '#0a9aa8', 'circle-stroke-width': 3 } });
+
       map.addSource('route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       map.addLayer({ id: 'route', type: 'line', source: 'route', layout: { 'line-cap': 'round' }, paint: { 'line-color': '#00a9b7', 'line-width': 5, 'line-opacity': 0.85, 'line-dasharray': [2, 1.4] } });
 
-      for (const layer of ['markers', 'clusters', 'pipes'] as const) {
+      for (const layer of ['markers', 'overlay-markers', 'clusters', 'pipes'] as const) {
         map.on('mouseenter', layer, () => { map.getCanvas().style.cursor = 'pointer'; });
         map.on('mouseleave', layer, () => { map.getCanvas().style.cursor = pickRef.current ? 'crosshair' : ''; });
       }
 
-      map.on('click', 'markers', event => {
+      const onMarker = (event: maplibregl.MapLayerMouseEvent) => {
         const found = event.features?.[0];
         if (!found || found.geometry.type !== 'Point') return;
         event.originalEvent.stopPropagation();
+        if (selectRef.current) {
+          selectRef.current(String(found.properties?.id));
+          return;
+        }
         const props = found.properties as { id: string; title: string; subtitle: string; kind: MapPointKind; severity: string; typeLabel: string; href: string };
         openPopup(map, found.geometry.coordinates as [number, number], node => {
           const title = document.createElement('strong');
@@ -341,7 +375,9 @@ export default function CityMap({ points, route, className = '', controls = true
             node.append(link);
           }
         });
-      });
+      };
+      map.on('click', 'markers', onMarker);
+      map.on('click', 'overlay-markers', onMarker);
 
       map.on('click', 'pipes', event => {
         const found = event.features?.[0];
@@ -374,7 +410,7 @@ export default function CityMap({ points, route, className = '', controls = true
       map.on('click', event => {
         const pick = pickRef.current;
         if (!pick) return;
-        const hit = map.queryRenderedFeatures(event.point, { layers: ['markers', 'clusters'] });
+        const hit = map.queryRenderedFeatures(event.point, { layers: ['markers', 'overlay-markers', 'clusters'] });
         if (hit.length > 0) return;
         pick(Number(event.lngLat.lat.toFixed(6)), Number(event.lngLat.lng.toFixed(6)));
       });
@@ -434,6 +470,31 @@ export default function CityMap({ points, route, className = '', controls = true
     if (!map || !ready) return;
     (map.getSource('points') as GeoJSONSource | undefined)?.setData(data);
   }, [data, ready]);
+
+  const overlayData = useMemo(() => pointCollection(overlays), [overlays]);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    (map.getSource('overlays') as GeoJSONSource | undefined)?.setData(overlayData);
+  }, [overlayData, ready]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    (map.getSource('zones') as GeoJSONSource | undefined)?.setData({
+      type: 'FeatureCollection',
+      features: zones.map(z => ({ type: 'Feature' as const, id: z.id, geometry: { type: 'Polygon' as const, coordinates: [z.polygon] }, properties: { id: z.id, kind: z.kind, color: z.color } })),
+    });
+  }, [zones, ready]);
+
+  // Выбранный объект подсвечивается кольцом, карта мягко центрируется на нём.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    const target = selectedId ? [...points, ...overlays].find(p => p.id === selectedId) : undefined;
+    (map.getSource('selected') as GeoJSONSource | undefined)?.setData({ type: 'FeatureCollection', features: target ? [feature(target)] : [] });
+    if (target) map.easeTo({ center: [target.lng, target.lat], duration: 400 });
+  }, [selectedId, points, overlays, ready]);
 
   // Без этого новая точка (например, геолокация жителя) просто оставалась за пределами экрана.
   useEffect(() => {
@@ -528,7 +589,7 @@ export default function CityMap({ points, route, className = '', controls = true
       )}
       {error && <p className="map-error" role="status">{error}</p>}
       <div ref={container} className="city-map" aria-label="Карта Актау" />
-      {byType.length > 0 && (
+      {typeLegend && byType.length > 0 && (
         <div className="map-type-legend">
           {byType.map(([type, count]) => (
             <button

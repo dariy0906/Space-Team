@@ -17,6 +17,9 @@ export const typeGlyph: Record<IncidentType, IconName> = {
   LIGHTING: 'lightbulb',
   SAFETY: 'shield-alert',
   WASTE: 'trash-2',
+  POTHOLE: 'traffic-cone',
+  WATER_OUTAGE: 'droplet-off',
+  AIR_QUALITY: 'gauge',
   OTHER: 'circle-dot',
 };
 
@@ -28,6 +31,10 @@ export const kindGlyph: Record<MapPointKind, IconName> = {
   drone: 'plane',
   resident: 'locate-fixed',
   picked: 'map-pin',
+  school: 'school',
+  kindergarten: 'baby',
+  hospital: 'hospital',
+  air: 'gauge',
 };
 
 /** Мягкая анимация контура: у каждой иконки своя, поэтому оживает именно то, что имеет смысл двигать. */

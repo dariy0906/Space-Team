@@ -21,7 +21,8 @@ export default function Realtime(){
   };
   // На /admin live-reload не нужен: действия администратора сами выполняют навигацию,
   // а автоматическая перезагрузка может отменить server-action redirect (например, приглашение камеры).
-  const reload=()=>{if(location.pathname.startsWith('/admin'))return;if(!idle())return;const now=Date.now();if(now-lastReload.current<1500)return;lastReload.current=now;window.location.reload();};
+  // data-realtime-hold: на экране результат, который перезагрузка стёрла бы (например, разбор кадра).
+  const reload=()=>{if(location.pathname.startsWith('/admin')||document.querySelector('[data-realtime-hold]'))return;if(!idle())return;const now=Date.now();if(now-lastReload.current<1500)return;lastReload.current=now;window.location.reload();};
   const schedule=()=>{
    if(pending.current)return;pending.current=true;const startUrl=location.href;let tries=0;
    const tick=()=>{if(location.href!==startUrl){pending.current=false;return;}if(idle()||tries>=10){pending.current=false;reload();return;}tries+=1;setTimeout(tick,1200);};

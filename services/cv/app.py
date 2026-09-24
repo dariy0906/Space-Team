@@ -8,7 +8,7 @@ import numpy as np
 from PIL import Image
 import mediapipe as mp
 from fastapi import FastAPI, Request, HTTPException
-from detectors import Observation, DetectionPipeline
+from detectors import Observation, DetectionPipeline, RoadDamageDetector
 
 app = FastAPI(title="Aqtau isolated CV service")
 model_path = os.environ.get("POSE_MODEL_PATH", "/models/pose_landmarker_lite.task")
@@ -23,7 +23,27 @@ landmarker = None
 
 @app.get("/health")
 def health():
-    return {"ready":Path(model_path).is_file() and bool(key),"model":"MediaPipe Pose Landmarker","fall":"experimental temporal heuristic","fight":"experimental pose-motion heuristic" if enable_fight else "disabled (set ENABLE_FIGHT=true)","timeoutSeconds":timeout}
+    return {"ready":Path(model_path).is_file() and bool(key),"model":"MediaPipe Pose Landmarker","road":"classical CV heuristic (road-damage-heuristic-v1), not a neural network","fall":"experimental temporal heuristic","fight":"experimental pose-motion heuristic" if enable_fight else "disabled (set ENABLE_FIGHT=true)","timeoutSeconds":timeout}
+
+road_detector = RoadDamageDetector()
+
+@app.post("/detect-road")
+async def detect_road(request: Request):
+    """Кадр дорожной камеры -> кандидаты повреждений покрытия. Модель позы не нужна."""
+    if not key or not secrets.compare_digest(request.headers.get("authorization",""),"Bearer "+key):
+        raise HTTPException(401)
+    if int(request.headers.get("content-length","0"))>3000000: raise HTTPException(413)
+    data=await request.body()
+    if len(data)>3000000: raise HTTPException(413)
+    try:
+        image=Image.open(io.BytesIO(data))
+        if image.width*image.height>4096*4096: raise ValueError()
+        image.thumbnail((1600,1600))
+        pixels=np.asarray(image.convert("RGB"))
+    except Exception:
+        raise HTTPException(400,"Invalid image")
+    detections=road_detector.detect(pixels)
+    return {"detections":detections,"detector":RoadDamageDetector.name,"kind":"classical-cv-heuristic","isMock":False,"width":image.width,"height":image.height}
 
 @app.post("/analyze")
 async def analyze(request: Request, session: str):

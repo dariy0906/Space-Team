@@ -36,7 +36,23 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      cv:
+        condition: service_started
     command: sh -c "npx prisma migrate deploy && npm run db:seed && npm run dev:next"
+  # CV-сервис (FastAPI): детектор повреждений дорог и эвристика падения. Раньше был только в
+  # docker-compose.prod.yml, поэтому локально конвейер камер не работал.
+  cv:
+    build:
+      context: ./services/cv
+    environment:
+      POSE_MODEL_PATH: /models/pose_landmarker_lite.task
+      CV_SERVICE_KEY: ${CV_SERVICE_KEY:?Set CV_SERVICE_KEY in .env}
+      DEMO_MODE: ${DEMO_MODE:-true}
+      DEMO_FALL_TIMEOUT: ${DEMO_FALL_TIMEOUT:-8}
+      FALL_TIMEOUT: ${FALL_TIMEOUT:-240}
+      ENABLE_FIGHT: ${ENABLE_FIGHT:-false}
+    ports:
+      - "127.0.0.1:8000:8000"
 volumes:
   postgres_data:
   uploads_data:

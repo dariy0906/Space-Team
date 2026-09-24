@@ -12,7 +12,7 @@ const WANTED = [
   'construction', 'lightbulb', 'shield-alert', 'trash-2', 'circle-dot',
   // объекты карты
   'hard-hat', 'cctv', 'radio', 'plane', 'locate-fixed', 'map-pin', 'circle-alert',
-  'school', 'gauge', 'droplet-off',
+  'school', 'gauge', 'droplet-off', 'traffic-cone', 'hospital', 'baby', 'users-round', 'navigation-2',
   // интерфейс
   'sun', 'moon',
 ];

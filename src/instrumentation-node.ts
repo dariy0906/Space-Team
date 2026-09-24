@@ -3,6 +3,7 @@
 // тянет node:crypto, которого в edge нет. Сюда попадаем только из nodejs-ветки.
 import { dispatchCritical } from './lib/dispatch';
 import { expireCameraSessions } from './lib/cameras';
+import { evaluateAirQuality, refreshLiveAir } from './lib/air-monitor';
 
 export function startBackgroundJobs() {
   if (process.env.NEXT_PHASE === 'phase-production-build') return;
@@ -22,4 +23,21 @@ export function startBackgroundJobs() {
     }
   }, 2000);
   state.dispatchTimer.unref();
+
+  // Качество воздуха: свежие модельные данные не чаще раза в 15 минут, проверка порогов у школ.
+  let airRunning = false;
+  const airTick = async () => {
+    if (airRunning) return;
+    airRunning = true;
+    try {
+      await refreshLiveAir().catch(() => false);
+      await evaluateAirQuality();
+    } catch (e) {
+      console.error('Air tick failed:', e instanceof Error ? e.message : 'unknown');
+    } finally {
+      airRunning = false;
+    }
+  };
+  setTimeout(airTick, 5000).unref();
+  setInterval(airTick, 30000).unref();
 }
