@@ -1,11 +1,85 @@
 'use client';
-import {useState} from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { Crosshair, Loader2, MapPin } from 'lucide-react';
 import MapView from './map-view';
-import {inAktau} from '@/lib/routing';
-export default function LocationFields(){
- const [lat,setLat]=useState('43.653'),[lng,setLng]=useState('51.174'),[message,setMessage]=useState('');
- function pick(a:number,b:number){if(!inAktau({lat:a,lng:b})){setMessage('Выберите точку в Актау');return;}setLat(a.toFixed(6));setLng(b.toFixed(6));setMessage('Точка выбрана');}
- function locate(){if(!navigator.geolocation){setMessage('Геолокация недоступна');return;}navigator.geolocation.getCurrentPosition(p=>pick(p.coords.latitude,p.coords.longitude),()=>setMessage('Не удалось определить координаты. Выберите точку на карте.'));}
- return <><div className="wide"><p className="subtle">Нажмите на карту, чтобы выбрать место</p><MapView className="picker-map" onPick={pick} points={[{id:'selected',title:'Место обращения',lat:Number(lat),lng:Number(lng),kind:'resident'}]}/></div><label className="field">Широта<input name="lat" type="number" min="43.57" max="43.78" step="any" value={lat} onChange={e=>setLat(e.target.value)} required/></label><label className="field">Долгота<input name="lng" type="number" min="51.08" max="51.30" step="any" value={lng} onChange={e=>setLng(e.target.value)} required/></label><div className="wide"><button className="button secondary" type="button" onClick={locate}>◎ Моё местоположение</button><span className="subtle ml-2" role="status">{message}</span></div></>;
-}
+import type { MapPoint } from './map';
+import { inAktau } from '@/lib/routing';
 
+const DEFAULT = { lat: 43.653, lng: 51.174 };
+
+export default function LocationFields() {
+  const [lat, setLat] = useState(DEFAULT.lat);
+  const [lng, setLng] = useState(DEFAULT.lng);
+  const [message, setMessage] = useState('');
+  const [warning, setWarning] = useState(false);
+  const [locating, setLocating] = useState(false);
+  // Клик по карте не должен её перецентрировать — иначе точка «убегает» из-под курсора.
+  const [follow, setFollow] = useState(true);
+
+  // Точка передаётся карте как обычный маркер, поэтому она и подсвечивается, и попадает в fitBounds.
+  const points = useMemo<MapPoint[]>(
+    () => [{ id: 'picked', title: 'Место происшествия', subtitle: `${lat.toFixed(5)}, ${lng.toFixed(5)}`, lat, lng, kind: 'picked' }],
+    [lat, lng],
+  );
+
+  // Границы — те же, что проверяет сервер (src/lib/validation.ts), поэтому точку за пределами
+  // Актау не принимаем: форма всегда отправляет координаты, которые пройдут валидацию.
+  const apply = useCallback((nextLat: number, nextLng: number, note: string, recenter = true) => {
+    if (!Number.isFinite(nextLat) || !Number.isFinite(nextLng) || !inAktau({ lat: nextLat, lng: nextLng })) {
+      setWarning(true);
+      setMessage('Точка за пределами Актау — выберите место в городе.');
+      return;
+    }
+    setFollow(recenter);
+    setLat(nextLat);
+    setLng(nextLng);
+    setWarning(false);
+    setMessage(note);
+  }, []);
+
+  function locate() {
+    if (!navigator.geolocation) {
+      setWarning(true);
+      setMessage('Геолокация не поддерживается этим браузером — укажите место на карте');
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        setLocating(false);
+        apply(Number(position.coords.latitude.toFixed(6)), Number(position.coords.longitude.toFixed(6)), `Позиция определена с точностью ±${Math.round(position.coords.accuracy)} м`);
+      },
+      error => {
+        setLocating(false);
+        setWarning(true);
+        setMessage(error.code === error.PERMISSION_DENIED ? 'Доступ к геолокации запрещён — укажите место на карте' : 'Не удалось определить координаты — укажите место на карте');
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  }
+
+  return (
+    <>
+      <input type="hidden" name="lat" value={lat} />
+      <input type="hidden" name="lng" value={lng} />
+      <div className="wide location-picker">
+        <div className="location-picker-head">
+          <div>
+            <strong><MapPin size={14} /> Место происшествия</strong>
+            <span className="subtle">Нажмите на карту или используйте геолокацию</span>
+          </div>
+          <button className="button secondary" type="button" onClick={locate} disabled={locating}>
+            {locating ? <Loader2 size={15} className="spin" /> : <Crosshair size={15} />}
+            {locating ? 'Определяем…' : 'Моё местоположение'}
+          </button>
+        </div>
+        <MapView points={points} onPick={(nextLat, nextLng) => apply(nextLat, nextLng, 'Место выбрано на карте', false)} controls={false} cluster={false} autoFit={follow} className="picker-map" />
+        <div className="location-picker-foot">
+          <label className="field">Широта<input type="number" min="43.57" max="43.78" step="any" value={lat} onChange={event => apply(Number(event.target.value), lng, 'Координаты введены вручную')} /></label>
+          <label className="field">Долгота<input type="number" min="51.08" max="51.30" step="any" value={lng} onChange={event => apply(lat, Number(event.target.value), 'Координаты введены вручную')} /></label>
+        </div>
+        {message && <p className={warning ? 'location-warning' : 'subtle'} role="status">{message}</p>}
+      </div>
+    </>
+  );
+}

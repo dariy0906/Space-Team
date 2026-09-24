@@ -24,5 +24,5 @@ export default function Realtime(){
   source.onopen=()=>setOnline(true);source.onerror=()=>setOnline(false);
   return()=>{source.close();};
  },[]);
- return <span className={online?'realtime-state online':'realtime-state'} role="status">{online?'● Live':'○ Переподключение…'}</span>;
+ return <span className={online?'realtime-state online':'realtime-state'} role="status"><i className="realtime-dot"/>{online?'Live':'Переподключение…'}</span>;
 }

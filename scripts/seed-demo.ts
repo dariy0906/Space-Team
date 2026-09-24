@@ -19,21 +19,22 @@ type SeedIncident = {
   completion?: string;
 };
 
+// Координаты микрорайонов взяты из OpenStreetMap, чтобы подпись адреса совпадала с точкой на карте.
 const incidents: SeedIncident[] = [
-  { title: 'Возможное падение человека', type: 'PERSON_FALL', source: 'CAMERA', severity: 'CRITICAL', district: '12 мкр.', lat: 43.661, lng: 51.164, confidence: 88 },
-  { title: 'Утечка воды · датчик W-014', type: 'WATER_LEAK', source: 'SENSOR', severity: 'HIGH', district: '7 мкр.', lat: 43.646, lng: 51.177 },
-  { title: 'Задымление в районе 15 мкр.', type: 'SMOKE', source: 'CAMERA', severity: 'HIGH', district: '15 мкр.', lat: 43.672, lng: 51.151, confidence: 84 },
-  { title: 'Человек в опасности у берега', type: 'WATER_RESCUE', source: 'DRONE', severity: 'CRITICAL', district: 'Набережная', lat: 43.638, lng: 51.154, confidence: 81 },
-  { title: 'Возможное возгорание · 5 мкр.', type: 'FIRE', source: 'CAMERA', severity: 'CRITICAL', district: '5 мкр.', lat: 43.651, lng: 51.17, confidence: 92, status: 'CONFIRMED' },
-  { title: 'Утечка воды · датчик W-021', type: 'WATER_LEAK', source: 'SENSOR', severity: 'MEDIUM', district: '17 мкр.', lat: 43.68, lng: 51.192, status: 'CONFIRMED' },
-  { title: 'Обрыв освещения', type: 'OTHER', source: 'MANUAL', severity: 'LOW', district: '3 мкр.', lat: 43.643, lng: 51.201 },
-  { title: 'Возможное падение · камера C-08', type: 'PERSON_FALL', source: 'CAMERA', severity: 'MEDIUM', district: '20 мкр.', lat: 43.684, lng: 51.161, confidence: 79 },
-  { title: 'Утечка воды устранена · 26 мкр.', type: 'WATER_LEAK', source: 'SENSOR', severity: 'HIGH', district: '26 мкр.', lat: 43.694, lng: 51.175, status: 'RESOLVED', resolvedSpec: 'WATER', completion: 'Течь устранена, соединение проверено' },
-  { title: 'Спасение у скальной тропы', type: 'WATER_RESCUE', source: 'DRONE', severity: 'HIGH', district: 'Скальная тропа', lat: 43.632, lng: 51.14, confidence: 83, status: 'RESOLVED', resolvedSpec: 'RESCUE', completion: 'Человек доставлен на берег, медицинская помощь не требуется' },
-  { title: 'Течь во дворе', type: 'WATER_LEAK', source: 'RESIDENT', severity: 'MEDIUM', district: '4 мкр.', lat: 43.65, lng: 51.189, reporterEmail: 'resident@demo.kz' },
-  { title: 'Повреждён люк', type: 'CITIZEN_REPORT', source: 'RESIDENT', severity: 'LOW', district: '9 мкр.', lat: 43.658, lng: 51.198, reporterEmail: 'resident@demo.kz', status: 'CONFIRMED' },
-  { title: 'Не горит фонарь', type: 'LIGHTING', source: 'RESIDENT', severity: 'MEDIUM', district: '14 мкр.', lat: 43.673, lng: 51.207, reporterEmail: 'resident2@demo.kz' },
-  { title: 'Мусор у подъезда', type: 'WASTE', source: 'RESIDENT', severity: 'LOW', district: '11 мкр.', lat: 43.655, lng: 51.154, reporterEmail: 'resident2@demo.kz', status: 'RESOLVED', resolvedSpec: 'SANITATION', completion: 'Территория убрана, контейнер вывезен' },
+  { title: 'Возможное падение человека', type: 'PERSON_FALL', source: 'CAMERA', severity: 'CRITICAL', district: '12 мкр.', lat: 43.66105, lng: 51.15033, confidence: 88 },
+  { title: 'Утечка воды · датчик W-014', type: 'WATER_LEAK', source: 'SENSOR', severity: 'HIGH', district: '7 мкр.', lat: 43.64381, lng: 51.15625 },
+  { title: 'Задымление в районе 15 мкр.', type: 'SMOKE', source: 'CAMERA', severity: 'HIGH', district: '15 мкр.', lat: 43.65915, lng: 51.1384, confidence: 84 },
+  { title: 'Человек в опасности у берега', type: 'WATER_RESCUE', source: 'DRONE', severity: 'CRITICAL', district: 'Набережная', lat: 43.641, lng: 51.15455, confidence: 81 },
+  { title: 'Возможное возгорание · 5 мкр.', type: 'FIRE', source: 'CAMERA', severity: 'CRITICAL', district: '5 мкр.', lat: 43.63823, lng: 51.15886, confidence: 92, status: 'CONFIRMED' },
+  { title: 'Утечка воды · датчик W-021', type: 'WATER_LEAK', source: 'SENSOR', severity: 'MEDIUM', district: '17 мкр.', lat: 43.67102, lng: 51.14397, status: 'CONFIRMED' },
+  { title: 'Обрыв освещения', type: 'OTHER', source: 'MANUAL', severity: 'LOW', district: '3 мкр.', lat: 43.63718, lng: 51.17873 },
+  { title: 'Возможное падение · камера C-08', type: 'PERSON_FALL', source: 'CAMERA', severity: 'MEDIUM', district: '20 мкр.', lat: 43.68342, lng: 51.14311, confidence: 79 },
+  { title: 'Утечка воды устранена · 26 мкр.', type: 'WATER_LEAK', source: 'SENSOR', severity: 'HIGH', district: '26 мкр.', lat: 43.66224, lng: 51.16547, status: 'RESOLVED', resolvedSpec: 'WATER', completion: 'Течь устранена, соединение проверено' },
+  { title: 'Спасение у скальной тропы', type: 'WATER_RESCUE', source: 'DRONE', severity: 'HIGH', district: 'Скальная тропа', lat: 43.62612, lng: 51.16652, confidence: 83, status: 'RESOLVED', resolvedSpec: 'RESCUE', completion: 'Человек доставлен на берег, медицинская помощь не требуется' },
+  { title: 'Течь во дворе', type: 'WATER_LEAK', source: 'RESIDENT', severity: 'MEDIUM', district: '4 мкр.', lat: 43.63432, lng: 51.16471, reporterEmail: 'resident@demo.kz' },
+  { title: 'Повреждён люк', type: 'CITIZEN_REPORT', source: 'RESIDENT', severity: 'LOW', district: '9 мкр.', lat: 43.64641, lng: 51.15336, reporterEmail: 'resident@demo.kz', status: 'CONFIRMED' },
+  { title: 'Не горит фонарь', type: 'LIGHTING', source: 'RESIDENT', severity: 'MEDIUM', district: '14 мкр.', lat: 43.65119, lng: 51.146, reporterEmail: 'resident2@demo.kz' },
+  { title: 'Мусор у подъезда', type: 'WASTE', source: 'RESIDENT', severity: 'LOW', district: '11 мкр.', lat: 43.65547, lng: 51.15522, reporterEmail: 'resident2@demo.kz', status: 'RESOLVED', resolvedSpec: 'SANITATION', completion: 'Территория убрана, контейнер вывезен' },
 ];
 
 export async function seedDemo(db: PrismaClient) {
