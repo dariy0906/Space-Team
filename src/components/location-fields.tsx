@@ -10,6 +10,8 @@ const DEFAULT = { lat: 43.653, lng: 51.174 };
 export default function LocationFields() {
   const [lat, setLat] = useState(DEFAULT.lat);
   const [lng, setLng] = useState(DEFAULT.lng);
+  const [latDraft, setLatDraft] = useState(String(DEFAULT.lat));
+  const [lngDraft, setLngDraft] = useState(String(DEFAULT.lng));
   const [message, setMessage] = useState('');
   const [warning, setWarning] = useState(false);
   const [locating, setLocating] = useState(false);
@@ -33,6 +35,8 @@ export default function LocationFields() {
     setFollow(recenter);
     setLat(nextLat);
     setLng(nextLng);
+    setLatDraft(String(nextLat));
+    setLngDraft(String(nextLng));
     setWarning(false);
     setMessage(note);
   }, []);
@@ -75,8 +79,8 @@ export default function LocationFields() {
         </div>
         <MapView points={points} onPick={(nextLat, nextLng) => apply(nextLat, nextLng, 'Место выбрано на карте', false)} controls={false} cluster={false} autoFit={follow} className="picker-map" />
         <div className="location-picker-foot">
-          <label className="field">Широта<input type="number" min="43.57" max="43.78" step="any" value={lat} onChange={event => apply(Number(event.target.value), lng, 'Координаты введены вручную')} /></label>
-          <label className="field">Долгота<input type="number" min="51.08" max="51.30" step="any" value={lng} onChange={event => apply(lat, Number(event.target.value), 'Координаты введены вручную')} /></label>
+          <label className="field">Широта<input type="number" min="43.57" max="43.78" step="any" required value={latDraft} onChange={event => { setLatDraft(event.target.value); if(event.target.validity.valid && event.target.value) setLat(Number(event.target.value)); }} onBlur={() => { if(latDraft) apply(Number(latDraft), lng, 'Координаты введены вручную'); }} /></label>
+          <label className="field">Долгота<input type="number" min="51.08" max="51.30" step="any" required value={lngDraft} onChange={event => { setLngDraft(event.target.value); if(event.target.validity.valid && event.target.value) setLng(Number(event.target.value)); }} onBlur={() => { if(lngDraft) apply(lat, Number(lngDraft), 'Координаты введены вручную'); }} /></label>
         </div>
         {message && <p className={warning ? 'location-warning' : 'subtle'} role="status">{message}</p>}
       </div>

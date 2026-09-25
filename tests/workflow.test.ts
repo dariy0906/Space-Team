@@ -8,8 +8,8 @@ import {dispatchCritical} from '../src/lib/dispatch';
 test('transactional lifecycle, conflict protection, photo requirement and reopen',async()=>{
   assert.match(process.env.DATABASE_URL||'',/aqtau_test/,'Use isolated aqtau_test database');
   const tag=randomUUID();
-  const op1=await db.user.create({data:{name:'Test op1',email:tag+'o1@test.local',passwordHash:'unused',role:'OPERATOR'}});
-  const op2=await db.user.create({data:{name:'Test op2',email:tag+'o2@test.local',passwordHash:'unused',role:'OPERATOR'}});
+  const op1=await db.user.create({data:{name:'Test op1',email:tag+'o1@test.local',passwordHash:'unused',role:'OPERATOR',operatorProfile:{create:{onShift:true}}}});
+  const op2=await db.user.create({data:{name:'Test op2',email:tag+'o2@test.local',passwordHash:'unused',role:'OPERATOR',operatorProfile:{create:{onShift:true}}}});
   const worker=await db.user.create({data:{name:'Test worker',email:tag+'w@test.local',passwordHash:'unused',role:'WORKER',workerProfile:{create:{specialization:'WATER'}}}});
   const resident=await db.user.create({data:{name:'Test resident',email:tag+'r@test.local',passwordHash:'unused',role:'RESIDENT'}});
   const i=await db.incident.create({data:{title:'Test lifecycle',type:'WATER_LEAK',source:'RESIDENT',severity:'MEDIUM',lat:43.65,lng:51.17,address:'Актау',reporterId:resident.id}});

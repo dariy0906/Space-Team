@@ -11,7 +11,7 @@ test('stale unfinished demo task does not block a newly assigned task; live orde
   const worker = await db.user.create({data:{name:'Queue worker',email:tag+'w@test.local',passwordHash:'unused',role:'WORKER',workerProfile:{create:{specialization:'WATER'}}}});
   let staleId='', freshId='', thirdId='';
   try {
-    const stale = await db.incident.create({data:{title:'Stale leftover',type:'WATER_LEAK',source:'RESIDENT',severity:'MEDIUM',lat:43.65,lng:51.17,address:'Актау'}});staleId=stale.id;
+    const stale = await db.incident.create({data:{title:'Stale leftover',isDemo:true,type:'WATER_LEAK',source:'RESIDENT',severity:'MEDIUM',lat:43.65,lng:51.17,address:'Актау'}});staleId=stale.id;
     await decideIncident(stale.id, operator.id, 'CONFIRMED');
     await assignIncident(stale.id, operator.id, worker.id, null);
     // Имитируем незакрытую demo-задачу прошлого запуска: окно в прошлом, статус ASSIGNED.

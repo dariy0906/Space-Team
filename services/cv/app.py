@@ -8,6 +8,7 @@ import numpy as np
 from PIL import Image
 import mediapipe as mp
 from fastapi import FastAPI, Request, HTTPException
+from starlette.concurrency import run_in_threadpool
 from detectors import Observation, DetectionPipeline
 
 app = FastAPI(title="Aqtau isolated CV service")
@@ -30,9 +31,13 @@ async def analyze(request: Request, session: str):
     if not key or not secrets.compare_digest(request.headers.get("authorization",""),"Bearer "+key):
         raise HTTPException(401)
     if len(session)>64: raise HTTPException(400)
-    if int(request.headers.get("content-length","0"))>500000: raise HTTPException(413)
-    data=await request.body()
-    if len(data)>500000: raise HTTPException(413)
+    length=request.headers.get("content-length","0")
+    if not length.isdecimal(): raise HTTPException(400,"Invalid content length")
+    if int(length)>500000: raise HTTPException(413)
+    data=bytearray()
+    async for chunk in request.stream():
+        if len(data)+len(chunk)>500000: raise HTTPException(413)
+        data.extend(chunk)
     if not Path(model_path).is_file(): raise HTTPException(503,"Pose model not installed")
     try:
         image=Image.open(io.BytesIO(data))
@@ -40,7 +45,7 @@ async def analyze(request: Request, session: str):
         pixels=np.asarray(image.convert("RGB"))
     except Exception:
         raise HTTPException(400,"Invalid image")
-    return process(session,pixels)
+    return await run_in_threadpool(process,session,pixels)
 
 def process(session,pixels):
     global landmarker

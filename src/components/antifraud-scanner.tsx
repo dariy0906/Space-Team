@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, FileSearch, Loader2, Phone, Link2, CreditCard, ScanLine, ShieldAlert, ShieldCheck, Trash2, Scale } from 'lucide-react';
 import { analyzeText, categoryLabel, maskCard, MAX_INPUT_LENGTH, type AntifraudResult, type Verdict } from '@/lib/antifraud/engine';
 import type { LawCountry } from '@/lib/antifraud/laws';
@@ -40,6 +40,13 @@ export default function AntifraudScanner() {
   const [result, setResult] = useState<AntifraudResult | null>(null);
   const [scanning, setScanning] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (timer.current) clearTimeout(timer.current);
+    setScanning(false);
+    setResult(null);
+    return () => { if (timer.current) clearTimeout(timer.current); };
+  }, [text, country]);
 
   const grouped = useMemo(() => {
     if (!result) return [];
