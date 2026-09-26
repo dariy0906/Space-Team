@@ -9,7 +9,7 @@ from PIL import Image
 import mediapipe as mp
 from fastapi import FastAPI, Request, HTTPException
 from starlette.concurrency import run_in_threadpool
-from detectors import Observation, DetectionPipeline
+from detectors import Observation, DetectionPipeline, RoadDamageDetector
 
 app = FastAPI(title="Aqtau isolated CV service")
 model_path = os.environ.get("POSE_MODEL_PATH", "/models/pose_landmarker_lite.task")
@@ -25,6 +25,28 @@ landmarker = None
 @app.get("/health")
 def health():
     return {"ready":Path(model_path).is_file() and bool(key),"model":"MediaPipe Pose Landmarker","fall":"experimental temporal heuristic","fight":"experimental pose-motion heuristic" if enable_fight else "disabled (set ENABLE_FIGHT=true)","timeoutSeconds":timeout}
+
+road_detector = RoadDamageDetector()
+
+@app.post("/detect-road")
+async def detect_road(request: Request):
+    if not key or not secrets.compare_digest(request.headers.get("authorization",""),"Bearer "+key):
+        raise HTTPException(401)
+    length=request.headers.get("content-length","0")
+    if not length.isdecimal(): raise HTTPException(400,"Invalid content length")
+    if int(length)>5000000: raise HTTPException(413)
+    data=bytearray()
+    async for chunk in request.stream():
+        if len(data)+len(chunk)>5000000: raise HTTPException(413)
+        data.extend(chunk)
+    try:
+        image=Image.open(io.BytesIO(data))
+        if image.width*image.height>4096*4096: raise ValueError()
+        pixels=np.asarray(image.convert("RGB"))
+    except Exception:
+        raise HTTPException(400,"Invalid image")
+    detections=road_detector.detect(pixels)
+    return {"detections":detections,"detector":RoadDamageDetector.name,"kind":"classical-cv-heuristic","isMock":False,"width":image.width,"height":image.height}
 
 @app.post("/analyze")
 async def analyze(request: Request, session: str):

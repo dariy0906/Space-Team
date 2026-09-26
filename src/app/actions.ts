@@ -11,6 +11,7 @@ import { db } from '@/lib/db';
 import { incidentInput } from '@/lib/validation';
 import { demoAccounts, demoEnabled } from '@/lib/demo';
 import { publishIncident } from '@/lib/events';
+import { linkNearbyRoadIssue } from '@/lib/road';
 import { advanceTask, assignIncident, claimIncident, decideIncident } from '@/lib/workflow';
 import { routing } from '@/lib/routing';
 const field = (data: FormData, name: string) => String(data.get(name) ?? '');
@@ -86,6 +87,7 @@ export async function createReportAction(data: FormData) {
           },
         },
       });
+      await linkNearbyRoadIssue(tx, i);
       await publishIncident(tx, i, 'Новое обращение жителя');
       return i;
     });

@@ -82,6 +82,40 @@ Seed-данные, не реальные детекторы (помечены DE
 Пробки (traffic), общественный транспорт и ETA автобуса, оценка ветра по видео, навигация жителя,
 push-уведомления, offline-PWA, APK (Capacitor), реальные детекторы fire/smoke/water.
 
+## Умный город: вода, дороги, воздух
+
+Единая карта слоёв у оператора (`/operator`) и жителя (`/resident`): критические события, дороги и ямы,
+обращения, вода, воздух (AQI), школы/сады/больницы, камеры, бригады. Клик по объекту открывает карточку
+справа, не уходя с карты. Житель видит только публичные события и свои обращения.
+
+| Что | Статус данных |
+|---|---|
+| Школы, сады, больницы (97 объектов) | **REAL** — OpenStreetMap (ODbL), `scripts/data/aktau-facilities.json` |
+| Воздух «Модель CAMS · центр Актау» | **LIVE** — Open-Meteo (модель CAMS, не датчик), обновление раз в 15 мин |
+| Станции AQ-01…AQ-03 | **SIMULATED** — показания смоделированы, помечены в интерфейсе |
+| AQI | расчёт по PM2.5, шкала US EPA (2024) |
+| Зона переноса загрязнения | **оценка** — геометрический сектор по ветру, не модель рассеивания |
+| Отключения воды, камеры AKT-011…018 | **DEMO DATA** — размещение и события демонстрационные |
+| Детектор ям (`/operator/road`) | **EXPERIMENTAL** — классическая CV-эвристика `road-damage-heuristic-v1`, не нейросеть |
+
+Дорожный конвейер: кадр камеры → CV-сервис `/detect-road` → событие `POTHOLE` «ожидает проверки»
+(координаты камеры, рамка, оценка, кадр) → оператор подтверждает → бригада → фото «после». Повторные
+обнаружения и жалобы жителей в радиусе 30 м связываются с уже открытой проблемой без дубля. Кадры
+городских камер видят только сотрудники, даже если кадр прикреплён к обращению жителя.
+
+Воздух у школ: при AQI ≥ 101 и детских учреждениях в зоне переноса создаётся публичное предупреждение
+(с пометкой SIMULATED/LIVE), событие `AIR_QUALITY` и уведомление операторам. SMS/push не отправляются.
+
+### Демо-сценарии
+
+1. **Яма с камеры.** Оператор → «Дороги» → камера AKT-011 → перетащить кадр дороги с ямой →
+   «Проанализировать кадр»: рамка на кадре и «Создано событие: ожидает проверки». Кадр с AKT-014
+   добавляется к уже открытой жалобе жителя («Добавлено к уже открытой проблеме»).
+2. **Воздух у школ.** `npm run demo:air` поднимает PM2.5 на станции AQ-03: на карте растёт зона переноса,
+   у жителя появляется предупреждение со списком школ. `npm run demo:air -- --calm` возвращает норму.
+3. **Отключение воды.** Слой «Вода»: зона 12 мкр. → карточка со стадией, причиной, сроком
+   восстановления и затронутыми школами и больницами.
+
 ## Быстрый старт (локально, с Docker)
 
 Нужны Docker с Compose. При первом запуске создастся `.env` со случайными ключами.
@@ -141,16 +175,18 @@ npx tsc --noEmit
 npm run build
 
 # backend (нужна изолированная БД, имя содержит aqtau_test)
-DATABASE_URL=<...aqtau_test> DEMO_MODE=true node_modules/.bin/tsx --test tests/workflow.test.ts tests/worker-queue.test.ts
+DATABASE_URL=<...aqtau_test> DEMO_MODE=true node_modules/.bin/tsx --test tests/workflow.test.ts tests/worker-queue.test.ts tests/city.test.ts
 
 # браузерные E2E (Playwright + Chromium), приложение должно быть запущено
 DATABASE_URL=<..._test> E2E_URL=http://localhost:3000 CHROMIUM_PATH=/usr/bin/chromium node tests/browser-workflow.mjs
 DATABASE_URL=<..._test> E2E_URL=http://localhost:3000 CHROMIUM_PATH=/usr/bin/chromium node tests/browser-operators.mjs
 DATABASE_URL=<..._test> E2E_URL=http://localhost:3000 APP_PUBLIC_URL=http://localhost:3000 CHROMIUM_PATH=/usr/bin/chromium node tests/browser-camera.mjs
 DATABASE_URL=<..._test> E2E_URL=http://localhost:3000 CHROMIUM_PATH=/usr/bin/chromium FALL_STAND_IMAGE=/path/person.jpg node tests/browser-fall.mjs
+# нужен запущенный CV-сервис (CV_SERVICE_URL у приложения) и кадр дороги с ямой
+DATABASE_URL=<..._test> E2E_URL=http://localhost:3000 CHROMIUM_PATH=/usr/bin/chromium ROAD_FRAME=/path/road.jpg node tests/browser-road.mjs
 
 # CV
-cd services/cv && python -m unittest test_detectors test_video -v
+cd services/cv && python -m unittest test_detectors test_video test_road -v
 ```
 
 ## Production-развёртывание

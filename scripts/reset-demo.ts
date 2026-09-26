@@ -57,6 +57,7 @@ async function main() {
     await tx.camera.deleteMany();
     await tx.drone.deleteMany();
     await tx.publicWarning.deleteMany();
+    await tx.cityFacility.deleteMany();
     await tx.user.deleteMany();
   });
   console.log('Таблицы очищены. Запуск seed ...');

@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import {
   Bell,
+  Construction,
   LayoutDashboard,
   ListChecks,
   MapPinned,
@@ -29,6 +30,7 @@ const text = {
     incidents: 'События',
     tasks: 'Мои задачи',
     reports: 'Мои обращения',
+    road: 'Дороги',
     pipes: 'Карта труб',
     antifraud: 'Антифрод',
     settings: 'Настройки',
@@ -44,6 +46,7 @@ const text = {
     incidents: 'Оқиғалар',
     tasks: 'Менің тапсырмаларым',
     reports: 'Өтініштерім',
+    road: 'Жолдар',
     pipes: 'Құбыр картасы',
     antifraud: 'Антифрод',
     settings: 'Баптаулар',
@@ -124,6 +127,7 @@ export default function Shell({
         ? [
             { href: main, label: t.overview, icon: LayoutDashboard },
             { href: '/operator/incidents', label: t.incidents, icon: MapPinned },
+            { href: '/operator/road', label: t.road, icon: Construction },
           ]
         : user.role === 'WORKER'
           ? [{ href: main, label: t.tasks, icon: ListChecks }]

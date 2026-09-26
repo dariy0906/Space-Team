@@ -27,6 +27,9 @@ enum IncidentType {
   PERSON_FALL
   WATER_RESCUE
   CITIZEN_REPORT
+  POTHOLE
+  WATER_OUTAGE
+  AIR_QUALITY
   OTHER
 }
 
@@ -37,6 +40,7 @@ enum IncidentSource {
   DRONE
   RESIDENT
   MANUAL
+  SIMULATION
 }
 
 enum Severity {
@@ -380,4 +384,25 @@ model CameraSignal {
   session   CameraSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId, id])
+}
+
+// Социально значимые объекты города: по ним считается, кого затрагивает авария
+// или ухудшение качества воздуха.
+enum FacilityKind {
+  SCHOOL
+  KINDERGARTEN
+  HOSPITAL
+  SOCIAL
+}
+
+model CityFacility {
+  id      String       @id @default(uuid()) @db.Uuid
+  kind    FacilityKind
+  name    String
+  address String
+  lat     Float
+  lng     Float
+  isDemo  Boolean      @default(true)
+
+  @@index([kind])
 }

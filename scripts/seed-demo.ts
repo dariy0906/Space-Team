@@ -1,6 +1,7 @@
 import { PrismaClient, IncidentSource, IncidentType, Severity, IncidentStatus, Role, Specialization } from '@prisma/client';
 import { demoAccounts } from '../src/lib/demo';
 import { hash } from 'bcryptjs';
+import { seedCity } from './seed-city';
 
 const center = { lat: 43.653, lng: 51.174 };
 
@@ -87,7 +88,6 @@ export async function seedDemo(db: PrismaClient) {
     }
   }
 
-  if ((await db.camera.count()) === 0) for (let i = 0; i < 8; i++) await db.camera.create({ data: { name: `Camera #${11 + i}`, lat: 43.64 + i * 0.006, lng: 51.15 + (i % 4) * 0.014, isDemo: true } });
   if ((await db.sensor.count()) === 0) for (let i = 0; i < 5; i++) await db.sensor.create({ data: { name: `Water Sensor W-0${14 + i}`, type: 'WATER', lat: 43.645 + i * 0.009, lng: 51.16 + (i % 3) * 0.018 } });
   if ((await db.drone.count()) === 0) for (let i = 0; i < 2; i++) await db.drone.create({ data: { name: `Coast Drone D-0${i + 2}`, lat: 43.637 + i * 0.035, lng: 51.15 + i * 0.025 } });
 
@@ -142,8 +142,12 @@ export async function seedDemo(db: PrismaClient) {
     }
   }
 
+  // Городские слои: объекты, дорожные камеры, станции воздуха, аварии водоснабжения, ямы.
+  await seedCity(db, byEmail);
+
   if ((await db.publicWarning.count()) === 0) await db.publicWarning.create({ data: { title: 'Сильный ветер на побережье', description: 'Демонстрационное предупреждение: избегайте открытых участков у воды. Не является текущим прогнозом.', severity: 'HIGH', lat: 43.638, lng: 51.154, expiresAt: new Date(Date.now() + 7 * 86400000), isDemo: true } });
-  for (const sensor of await db.sensor.findMany()) if ((await db.sensorReading.count({ where: { sensorId: sensor.id } })) === 0) await db.sensorReading.create({ data: { sensorId: sensor.id, values: { pressurePreviousBar: 2.9, pressureBar: 1.1, flowAnomalyPercent: 73 }, isDemo: true } });
+  // Показания давления — только у датчиков воды; у станций воздуха свои показания.
+  for (const sensor of await db.sensor.findMany({ where: { type: 'WATER' } })) if ((await db.sensorReading.count({ where: { sensorId: sensor.id } })) === 0) await db.sensorReading.create({ data: { sensorId: sensor.id, values: { pressurePreviousBar: 2.9, pressureBar: 1.1, flowAnomalyPercent: 73 }, isDemo: true } });
 
   return {
     residents: demoAccounts.filter((a) => a.role === 'RESIDENT').length,

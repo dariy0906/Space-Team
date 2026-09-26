@@ -3,6 +3,7 @@ import path from 'node:path';
 import { NextResponse } from 'next/server';
 import { currentUser } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { CAMERA_FRAME_STAGE } from '@/lib/road';
 export const runtime = 'nodejs';
 export async function GET(_request: Request, { params }: { params: Promise<{ name: string }> }) {
   const user = await currentUser();
@@ -17,7 +18,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ nam
   const incident = media.incident;
   if (user.role === 'WORKER' && incident.assignedWorkerId !== user.id)
     return new NextResponse('Forbidden', { status: 403 });
-  if (user.role === 'RESIDENT' && incident.reporterId !== user.id)
+  if (user.role === 'RESIDENT' && (incident.reporterId !== user.id || media.stage === CAMERA_FRAME_STAGE))
     return new NextResponse('Forbidden', { status: 403 });
   try {
     const bytes = await readFile(path.join(process.cwd(), 'data', 'uploads', name));
