@@ -1,4 +1,4 @@
-# Production deployment: PostgreSQL + Next.js + CV service + automatic HTTPS (Caddy).
+# Production deployment: PostgreSQL + Next.js + Roboflow Cloud webhook receiver + automatic HTTPS (Caddy).
 # Usage:
 #   1. cp .env.example .env  (fill secrets and DOMAIN)
 #   2. docker compose -f docker-compose.prod.yml up -d --build
@@ -29,8 +29,6 @@ services:
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER:-aqtau}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-aqtau_safe}?schema=public
       APP_PUBLIC_URL: ${APP_PUBLIC_URL:?Set APP_PUBLIC_URL to your https:// URL}
-      CV_SERVICE_URL: http://cv:8000
-      CV_SERVICE_KEY: ${CV_SERVICE_KEY:?Set CV_SERVICE_KEY in .env}
     volumes:
       - uploads_data:/app/data
     depends_on:
@@ -38,20 +36,6 @@ services:
         condition: service_healthy
     expose:
       - "3000"
-
-  cv:
-    build:
-      context: ./services/cv
-    restart: unless-stopped
-    environment:
-      POSE_MODEL_PATH: /models/pose_landmarker_lite.task
-      CV_SERVICE_KEY: ${CV_SERVICE_KEY:?Set CV_SERVICE_KEY in .env}
-      DEMO_MODE: ${DEMO_MODE:-true}
-      DEMO_FALL_TIMEOUT: ${DEMO_FALL_TIMEOUT:-8}
-      FALL_TIMEOUT: ${FALL_TIMEOUT:-240}
-      ENABLE_FIGHT: ${ENABLE_FIGHT:-false}
-    expose:
-      - "8000"
 
   caddy:
     image: caddy:2

@@ -11,8 +11,9 @@ import {CameraEmailProvider} from '@/lib/email';
 import {location} from '@/lib/validation';
 export async function createCameraAction(data:FormData){
  const u=await requireUser('ADMIN');const name=z.string().trim().min(2).max(100).parse(data.get('name'));
+ const roboflowCameraId=z.string().trim().min(1).max(200).optional().parse(data.get('roboflowCameraId'))||null;
  const pos=location.parse({lat:data.get('lat'),lng:data.get('lng')});
- await db.$transaction(async tx=>{const c=await tx.camera.create({data:{name,...pos,status:'OFFLINE'}});await tx.auditLog.create({data:{actorId:u.id,action:'CAMERA_CREATED',entityId:c.id}});await tx.realtimeEvent.createMany({data:[{role:'ADMIN'},{role:'OPERATOR'}]});});
+ await db.$transaction(async tx=>{const c=await tx.camera.create({data:{name,...pos,roboflowCameraId,status:'OFFLINE'}});await tx.auditLog.create({data:{actorId:u.id,action:'CAMERA_CREATED',entityId:c.id}});await tx.realtimeEvent.createMany({data:[{role:'ADMIN'},{role:'OPERATOR'}]});});
  revalidatePath('/','layout');redirect('/admin/cameras');
 }
 export type InviteState={token?:string;url?:string;qr?:string;delivery?:string;error?:string}|null;
