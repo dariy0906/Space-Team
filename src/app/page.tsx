@@ -54,8 +54,8 @@ export default async function Landing() {
         <div className="landing-brand">
           <span className="brand-mark"><ShieldCheck size={22} /></span>
           <div>
-            <strong>SU AQTAU</strong>
-            <small>SAFE CITY SYSTEM</small>
+            <strong>DigitalAqtau</strong>
+            <small>SMART CITY PLATFORM</small>
           </div>
         </div>
         <Link href={target} className="button landing-nav-cta">
@@ -125,7 +125,7 @@ export default async function Landing() {
       </section>
 
       <footer className="landing-footer">
-        SU AQTAU — демонстрационный MVP. События имитируются, интеграций с городскими службами нет.
+        DigitalAqtau — демонстрационный MVP. События имитируются, интеграций с городскими службами нет.
       </footer>
     </div>
   );

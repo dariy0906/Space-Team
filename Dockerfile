@@ -1,4 +1,4 @@
-# Production image for the SU AQTAU Next.js app.
+# Production image for the DigitalAqtau Next.js app.
 # Builds the Next.js bundle and runs it together with Prisma migrations.
 FROM node:22-bookworm-slim AS build
 WORKDIR /app

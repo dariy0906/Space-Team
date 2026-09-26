@@ -123,7 +123,7 @@ button { cursor: pointer; }
   background: linear-gradient(140deg, #16c4cf, #0b7f96);
   box-shadow: 0 6px 18px rgb(11 127 150 / 45%);
 }
-.brand strong { font-size: 15px; letter-spacing: .12em; display: block; }
+.brand strong { font-size: 16px; letter-spacing: -.01em; display: block; }
 .brand small { color: var(--side-muted); font-size: 9px; letter-spacing: .18em; }
 .city-tag {
   border: 1px solid rgb(255 255 255 / 9%); background: rgb(255 255 255 / 5%); color: #b6cfda;
@@ -629,7 +629,7 @@ button { cursor: pointer; }
 
 .landing-nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px clamp(18px, 5vw, 64px); max-width: 1280px; margin: auto; }
 .landing-brand { display: flex; align-items: center; gap: 11px; }
-.landing-brand strong { display: block; font-size: 15px; letter-spacing: .12em; }
+.landing-brand strong { display: block; font-size: 16px; letter-spacing: -.01em; }
 .landing-brand small { display: block; color: var(--muted); font-size: 9px; letter-spacing: .18em; }
 .landing-nav-cta { min-height: 38px; padding: 9px 15px; }
 
@@ -879,3 +879,24 @@ button { cursor: pointer; }
   .map-chip { padding: 6px 9px; gap: 5px; font-size: 10.5px; }
   .map-basemaps button { padding: 5px 8px; font-size: 10.5px; }
 }
+
+/* ══════════════ Антифрод: ИИ-анализ Gemini ══════════════ */
+.scan-meta { align-items: center; }
+.ai-toggle {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
+  padding: 5px 11px 5px 8px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface);
+  color: var(--muted); font-size: 11px; font-weight: 700; transition: background .15s, border-color .15s, color .15s;
+}
+.ai-toggle input { accent-color: var(--brand); margin: 0; }
+.ai-toggle.on { border-color: color-mix(in srgb, #8b5cf6 45%, transparent); background: color-mix(in srgb, #8b5cf6 9%, var(--surface)); color: var(--ink); }
+.ai-toggle.on svg { color: #8b5cf6; }
+.scan-privacy { margin: 8px 0 0; font-size: 11px; line-height: 1.5; }
+.verdict-badges { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.engine-badge { display: inline-flex; align-items: center; gap: 5px; background: var(--input); color: var(--ink-soft); }
+.engine-badge svg { color: #8b5cf6; }
+.opinions { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: 11.5px; color: var(--muted); }
+.opinions span { display: inline-flex; align-items: center; gap: 5px; }
+.opinions b { color: var(--ink); }
+.opinions em { font-style: normal; color: #a8760f; font-weight: 700; }
+.ai-error { display: flex; gap: 7px; align-items: flex-start; color: #a8760f; }
+.ai-error svg { flex-shrink: 0; margin-top: 2px; }
