@@ -197,8 +197,8 @@ docker compose -f docker-compose.prod.yml up -d --build
 # открыть https://$DOMAIN
 ```
 
-Компоненты: PostgreSQL, Next.js (production build + `prisma migrate deploy`), CV-сервис, Caddy
-(автоматический HTTPS). Загруженные фото — в named-volume `uploads_data`.
+Компоненты: PostgreSQL, Next.js (production build + `prisma migrate deploy`), Caddy
+(автоматический HTTPS). CV для Roboflow webhook выполняется в Roboflow Cloud, не на сервере. Загруженные фото — в named-volume `uploads_data`.
 
 Для камеры телефона обязателен HTTPS-домен в `APP_PUBLIC_URL` (браузер требует secure context;
 localhost — исключение). Между разными сетями настройте `TURN_URL/USERNAME/PASSWORD`.

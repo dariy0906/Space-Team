@@ -7,6 +7,7 @@ import {
   Construction,
   LayoutDashboard,
   ListChecks,
+  ChartNoAxesCombined,
   MapPinned,
   Menu,
   ScanLine,
@@ -27,6 +28,7 @@ type SimpleUser = { name: string; email: string; role: 'RESIDENT' | 'WORKER' | '
 const text = {
   ru: {
     overview: 'Обзор',
+    analytics: 'Аналитика',
     incidents: 'События',
     tasks: 'Мои задачи',
     reports: 'Мои обращения',
@@ -42,6 +44,7 @@ const text = {
     city: 'Городская платформа безопасности',
   },
   kk: {
+    analytics: 'Талдау',
     overview: 'Шолу',
     incidents: 'Оқиғалар',
     tasks: 'Менің тапсырмаларым',
@@ -125,6 +128,7 @@ export default function Shell({
         ]
       : user.role === 'OPERATOR'
         ? [
+            { href: '/operator/analytics', label: t.analytics, icon: ChartNoAxesCombined },
             { href: main, label: t.overview, icon: LayoutDashboard },
             { href: '/operator/incidents', label: t.incidents, icon: MapPinned },
             { href: '/operator/road', label: t.road, icon: Construction },

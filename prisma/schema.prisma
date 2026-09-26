@@ -122,6 +122,7 @@ model Incident {
   claimedAt          DateTime?
   version            Int                  @default(0)
   metadata           Json?
+  externalEventKey   String?              @unique
   cameraId           String?              @db.Uuid
   camera             Camera?              @relation(fields: [cameraId], references: [id])
   assignedOperator   User?                @relation("AssignedOperator", fields: [assignedOperatorId], references: [id])
@@ -204,6 +205,7 @@ model Camera {
   lng       Float
   status    String          @default("ONLINE")
   isDemo    Boolean         @default(true)
+  roboflowCameraId String?  @unique
   sessions  CameraSession[]
   incidents Incident[]
 }

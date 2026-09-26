@@ -4,6 +4,7 @@ import { currentUser } from '@/lib/auth';
 import { PIPE_NETWORK } from '@/lib/pipe-network';
 import { LAW_ARTICLES } from '@/lib/antifraud/laws';
 import { Glyph } from '@/components/icons';
+import CityIllustration from '@/components/city-illustration';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,6 +78,7 @@ export default async function Landing() {
           <a href="#features" className="button secondary">Что внутри</a>
         </div>
         <p className="landing-note">Вход по демо-ролям — пароль вводить не нужно.</p>
+        <CityIllustration />
       </section>
 
       <section className="landing-stats">
