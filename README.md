@@ -189,7 +189,7 @@ npx tsc --noEmit
 npm run build
 
 # backend (нужна изолированная БД, имя содержит aqtau_test)
-DATABASE_URL=<...aqtau_test> DEMO_MODE=true node_modules/.bin/tsx --test tests/workflow.test.ts tests/worker-queue.test.ts tests/city.test.ts tests/antifraud-ai.test.ts
+DATABASE_URL=<...aqtau_test> DEMO_MODE=true node_modules/.bin/tsx --test tests/workflow.test.ts tests/worker-queue.test.ts
 
 # браузерные E2E (Playwright + Chromium), приложение должно быть запущено
 DATABASE_URL=<..._test> E2E_URL=http://localhost:3000 CHROMIUM_PATH=/usr/bin/chromium node tests/browser-workflow.mjs
@@ -234,3 +234,10 @@ localhost — исключение). Между разными сетями на
 - Realtime — SSE-поллинг по outbox; при недоступности события страница перезагружается автоматически.
 - `dispatchCritical` при старте отдаёт новые CRITICAL первому оператору (ротация — после timeout).
 - Единый сервер предполагает один инстанс приложения (in-process таймеры dispatching/expiry).
+
+## Обновление после технического аудита
+
+См. [AUDIT.md](AUDIT.md): архитектурные границы, исправления по файлам,
+проверки, ограничения и команды применения. Для быстрой проверки:
+`npm run check`, `npm run build`; интеграционные тесты требуют отдельной
+`aqtau_test` базы. Старые `backend/` и `frontend/` не относятся к активному приложению.

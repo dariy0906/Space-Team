@@ -12,7 +12,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 # Reuse the fully built app (includes prisma CLI + tsx needed for migrate/seed).
 COPY --from=build /app ./
-RUN mkdir -p /app/data/uploads
+RUN mkdir -p /app/data/uploads && chown -R node:node /app/data
+USER node
 EXPOSE 3000
 # Apply migrations; seed only in demo mode (seed is idempotent).
-CMD ["sh", "-lc", "npx prisma migrate deploy && { [ \"$DEMO_MODE\" = \"true\" ] && npm run db:seed || true; } && npm run start"]
+CMD ["sh", "-lc", "npx prisma migrate deploy && { if [ \"$DEMO_MODE\" = \"true\" ]; then npm run db:seed; fi; } && npm run start"]

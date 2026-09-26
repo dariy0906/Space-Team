@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { aqiCategory, aqiFromPm25, circlePolygon, estimatePlume, facilitiesWithin, inPlume, windFromLabel } from '../src/lib/city';
-import { distanceMeters } from '../src/lib/routing';
+import { aqiCategory, aqiFromPm25, circlePolygon, estimatePlume, facilitiesWithin, inPlume, windFromLabel } from '../../src/lib/city';
+import { distanceMeters } from '../../src/lib/routing';
 
 test('AQI по PM2.5 совпадает с опорными точками шкалы EPA', () => {
   assert.equal(aqiFromPm25(0), 0);

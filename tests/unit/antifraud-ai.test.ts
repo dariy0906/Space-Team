@@ -1,8 +1,8 @@
 // Логика второго мнения Gemini без сетевых вызовов: разбор ответа, объединение с правилами, маскировка.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { analyzeText } from '../src/lib/antifraud/engine';
-import { combineWithAi, parseOpinion, redactForAi, type AiOpinion } from '../src/lib/antifraud/gemini';
+import { analyzeText } from '../../src/lib/antifraud/engine';
+import { combineWithAi, parseOpinion, redactForAi, type AiOpinion } from '../../src/lib/antifraud/gemini';
 
 const scam = 'Служба безопасности банка. Срочно назовите код из SMS, иначе карта будет заблокирована.';
 const benign = 'Привет! Завтра в 18:00 встречаемся у второго подъезда, я принесу документы по квартире.';

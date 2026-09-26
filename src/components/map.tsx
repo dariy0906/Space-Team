@@ -368,7 +368,7 @@ export default function CityMap({ points, route, className = '', controls = true
           }
           node.append(row('Категория', props.typeLabel));
           if (props.subtitle) node.append(row('Адрес', props.subtitle));
-          if (props.href) {
+          if (props.href && /^\/(?![\/\\])/.test(props.href)) {
             const link = document.createElement('a');
             link.href = props.href;
             link.textContent = 'Открыть карточку →';
@@ -403,8 +403,10 @@ export default function CityMap({ points, route, className = '', controls = true
         if (!found || found.geometry.type !== 'Point') return;
         event.originalEvent.stopPropagation();
         const source = map.getSource('points') as GeoJSONSource;
-        const zoom = await source.getClusterExpansionZoom(Number(found.properties?.cluster_id));
-        map.easeTo({ center: found.geometry.coordinates as [number, number], zoom });
+        try {
+          const zoom = await source.getClusterExpansionZoom(Number(found.properties?.cluster_id));
+          if (mapRef.current === map) map.easeTo({ center: found.geometry.coordinates as [number, number], zoom });
+        } catch { /* Source may have changed or map may have unmounted. */ }
       });
 
       map.on('click', event => {

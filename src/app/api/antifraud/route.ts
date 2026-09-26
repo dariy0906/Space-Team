@@ -2,7 +2,7 @@
 // если на сервере задан GEMINI_API_KEY и пользователь не отключил ИИ-анализ.
 import { z } from 'zod';
 import { currentUser } from '@/lib/auth';
-import { sameOrigin } from '@/lib/cameras';
+import { readJson, RequestError, sameOrigin } from '@/lib/http';
 import { analyzeText, MAX_INPUT_LENGTH, sanitizeInput, type AntifraudResult } from '@/lib/antifraud/engine';
 import { askGemini, combineWithAi, geminiEnabled } from '@/lib/antifraud/gemini';
 
@@ -32,7 +32,14 @@ export async function POST(request: Request) {
   if (!sameOrigin(request)) return reply({ error: 'Запрос отклонён: другой источник' }, 403);
   const user = await currentUser();
   if (!user) return reply({ error: 'Нужно войти в систему' }, 401);
-  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+  let body: unknown;
+  try {
+    body = await readJson(request, 40_000);
+  } catch (e) {
+    if (e instanceof RequestError) return reply({ error: e.status === 413 ? 'Слишком большой запрос' : 'Некорректный запрос' }, e.status);
+    throw e;
+  }
+  const parsed = bodySchema.safeParse(body);
   if (!parsed.success) return reply({ error: `Нужен текст длиной до ${MAX_INPUT_LENGTH} символов` }, 400);
   const { text, country, useAi } = parsed.data;
 

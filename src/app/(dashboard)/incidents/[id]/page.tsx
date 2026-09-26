@@ -1,3 +1,4 @@
+import {z} from 'zod';
 import Image from 'next/image';
 import Link from 'next/link';
 import {notFound} from 'next/navigation';
@@ -14,7 +15,7 @@ import {TypeGlyph} from '@/components/icons';
 import {Star} from 'lucide-react';
 export const dynamic='force-dynamic';
 export default async function Detail({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{toast?:string;error?:string}>}){
- const u=await requireUser(),{id}=await params,{toast,error}=await searchParams;if(!/^[0-9a-f-]{36}$/i.test(id))notFound();
+ const u=await requireUser(),{id}=await params,{toast,error}=await searchParams;if(!z.string().uuid().safeParse(id).success)notFound();
  const i=await db.incident.findFirst({where:{id,...(u.role==='RESIDENT'?{reporterId:u.id}:u.role==='WORKER'?{assignedWorkerId:u.id}:{})},include:{media:{orderBy:{createdAt:'asc'}},history:{where:u.role==='RESIDENT'?{isPublic:true}:undefined,orderBy:{createdAt:'desc'},include:{actor:{select:{name:true}}}},task:true,assignedWorker:{select:{name:true}},assignedOperator:{select:{name:true}},camera:true}});
   if(!i)notFound();
   const meta=(i.metadata??{}) as Record<string,unknown>;

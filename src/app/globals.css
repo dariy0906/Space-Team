@@ -1186,3 +1186,63 @@ button { cursor: pointer; }
 .brand strong, .login-art h1, .login-art .tracking-normal { font-family: var(--font-display), var(--font-body), sans-serif; }
 .login-art h1 { font-weight: 700; letter-spacing: -.035em; font-size: clamp(26px, 3vw, 44px); line-height: 1.14; margin: 22px 0 18px; }
 @media (max-width: 640px) { .login-art h1 { font-size: 24px; } }
+
+/* Interaction and responsive layout primitives. */
+:root { --muted: #566c81; --brand: #087e8b; --brand-strong: #066674; }
+.dark { --muted: #a2b8ca; --brand: #25c2cd; --brand-strong: #4bd8e1; }
+.skip-link { position: fixed; top: 12px; left: 12px; z-index: 100; padding: 12px 20px; background: var(--surface); color: var(--ink); border-radius: var(--radius); box-shadow: var(--shadow); transform: translateY(-160%); }
+.skip-link:focus { transform: translateY(0); }
+.sidebar { overflow-y: auto; overscroll-behavior: contain; }
+.sidebar-backdrop { position: fixed; inset: 0; border: 0; background: rgb(3 15 27 / 58%); backdrop-filter: blur(3px); z-index: 29; }
+.page-content { margin-block: 0; }
+.page-heading h1 { font-size: clamp(24px, 2.6vw, 34px); line-height: 1.2; text-wrap: balance; }
+.page-heading { gap: 16px; flex-wrap: wrap; }
+.panel, .kpi { min-width: 0; }
+.panel { border-color: var(--line-strong); }
+.panel-header { gap: 12px; flex-wrap: wrap; }
+.button, .icon-button, .lang-button { min-height: 44px; }
+.icon-button { min-width: 44px; }
+.button { transition: background-color .16s, box-shadow .16s, transform .16s; }
+.button:active:not(:disabled) { transform: translateY(1px); }
+button:disabled { cursor: not-allowed; }
+input, select, textarea { max-width: 100%; }
+textarea { resize: vertical; }
+input[type='checkbox'] { width: 20px; height: 20px; accent-color: var(--brand); }
+.incident-card strong, .incident-card p, .entity code { overflow-wrap: anywhere; }
+.login-box { padding: clamp(22px, 4vw, 36px); }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+@media (max-width: 900px) {
+  .sidebar:not(.sidebar-open) { visibility: hidden; }
+  .sidebar { height: 100dvh; width: min(300px, 88vw); left: -310px; }
+  .sidebar-open { left: 0; }
+}
+@media (max-width: 640px) {
+  .topbar { padding-inline: 10px; height: auto; min-height: 68px; }
+  .topbar-title { display: none; }
+  .top-actions { margin-left: auto; }
+  .profile-chip { padding-left: 6px; margin-left: 0; }
+  .page-content { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
+  .mobile-nav a { min-height: 44px; justify-content: center; font-size: 10px; }
+  .mobile-nav { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+  .kpi strong { font-size: 26px; }
+  .kpi span { font-size: 12px; }
+  input:not([type='checkbox']), select, textarea { font-size: 16px; }
+  .landing-final { margin-inline: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
+}
+/* Small status labels require text contrast, not only a recognizable hue. */
+:root:not(.dark) .status-new { color: #245d99; }
+:root:not(.dark) .status-confirmed,
+:root:not(.dark) .status-resolved,
+:root:not(.dark) .severity-low { color: #17694e; }
+:root:not(.dark) .severity-medium { color: #795300; }
+:root:not(.dark) .severity-high { color: #974620; }
+:root:not(.dark) .severity-critical { color: #a72e43; }
+:root:not(.dark) .error-banner,
+:root:not(.dark) .critical-banner { color: #a72e43; }
+.realtime-state.online { color: #167452; }
+.dark .realtime-state.online { color: #5fd6ac; }
+.verdict-badge.tone-warn { background: #795300; }
+.verdict-badge.tone-safe { background: #17694e; }

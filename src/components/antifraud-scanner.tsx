@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Cpu, FileSearch, Loader2, Phone, Link2, CreditCard, ScanLine, ShieldAlert, ShieldCheck, Sparkles, Trash2, Scale } from 'lucide-react';
 import { analyzeText, categoryLabel, maskCard, MAX_INPUT_LENGTH, type AntifraudResult, type Verdict } from '@/lib/antifraud/engine';
 import type { LawCountry } from '@/lib/antifraud/laws';
@@ -43,6 +43,15 @@ export default function AntifraudScanner({ ai }: { ai: { enabled: boolean; model
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Номер текущей проверки: ответ устаревшей проверки (после «Очистить» или новой) не показываем.
   const run = useRef(0);
+
+  useEffect(() => {
+    if (timer.current) clearTimeout(timer.current);
+    // Текст или страна изменились — ответ ещё идущей ИИ-проверки уже не относится к ним.
+    run.current += 1;
+    setScanning(false);
+    setResult(null);
+    return () => { if (timer.current) clearTimeout(timer.current); };
+  }, [text, country]);
 
   const grouped = useMemo(() => {
     if (!result) return [];
