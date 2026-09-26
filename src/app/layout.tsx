@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Manrope } from 'next/font/google';
 import LocaleBridge from '@/features/i18n/locale-bridge';
 import './globals.css';
+import './design-system.css';
 
 const manrope = Manrope({ subsets: ['latin', 'cyrillic'], weight: ['400', '500', '600', '700', '800'], display: 'swap', variable: '--font-manrope' });
 export const metadata: Metadata = { title: 'SU AQTAU — городская безопасность', description: 'Демонстрационная платформа городской безопасности Актау', manifest: '/manifest.webmanifest', applicationName: 'SU AQTAU', icons: { icon: '/icon.svg' } };
