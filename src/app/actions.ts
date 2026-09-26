@@ -87,6 +87,7 @@ export async function createReportAction(data: FormData) {
           },
         },
       });
+      // Если рядом уже открыта та же дорожная проблема (например, найденная камерой) — связываем.
       await linkNearbyRoadIssue(tx, i);
       await publishIncident(tx, i, 'Новое обращение жителя');
       return i;

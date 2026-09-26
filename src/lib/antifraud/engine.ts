@@ -1,7 +1,7 @@
 // Антифрод-движок. Перенесён из проекта QuickCheck (server.py) и переведён на детерминированные
-// правила: весь анализ выполняется локально, без обращения к внешней модели и без API-ключа.
-// Схема результата совпадает с ответом QuickCheck, поэтому подключение модели позже не потребует
-// менять интерфейс — достаточно заполнить те же поля (см. analyzeText и AntifraudResult).
+// правила: этот анализ выполняется локально, без внешней модели и без API-ключа, и работает всегда.
+// Второе мнение ИИ-модели Google Gemini добавляет серверный модуль ./gemini.ts, заполняя те же поля
+// результата (см. combineWithAi).
 
 import { LAW_ARTICLES, countryLaw, type LawArticle, type LawCountry } from './laws';
 
@@ -32,8 +32,16 @@ export type AntifraudResult = {
   entities: { urls: string[]; phones: string[]; cards: string[] };
   sanitized: boolean;
   truncated: boolean;
-  engine: 'rules';
+  /** rules — только локальные правила; gemini — итог объединён с мнением модели Gemini. */
+  engine: 'rules' | 'gemini';
+  /** Оценки модели и правил по отдельности, если проверка шла через ИИ. */
+  ai?: { model: string; verdict: Verdict; riskScore: number } | null;
+  rules?: { verdict: Verdict; riskScore: number } | null;
+  /** Почему ИИ-анализ не выполнен (ключ, лимит, сбой API) — тогда показан вердикт правил. */
+  aiError?: string | null;
 };
+
+export const verdictRank: Record<Verdict, number> = { 'БЕЗОПАСНО': 0, 'ПОДОЗРИТЕЛЬНО': 1, 'МОШЕННИКИ': 2 };
 
 export const categoryLabel: Record<SignalCategory, string> = {
   financial: 'Требование денег',
@@ -226,7 +234,7 @@ function scoreOf(signals: DetectedSignal[]): number {
   return Math.min(29, weak * 9);
 }
 
-function verdictOf(score: number): Verdict {
+export function verdictOf(score: number): Verdict {
   if (score >= 70) return 'МОШЕННИКИ';
   if (score >= 30) return 'ПОДОЗРИТЕЛЬНО';
   return 'БЕЗОПАСНО';

@@ -45,7 +45,7 @@ async def detect_road(request: Request):
         pixels=np.asarray(image.convert("RGB"))
     except Exception:
         raise HTTPException(400,"Invalid image")
-    detections=road_detector.detect(pixels)
+    detections=await run_in_threadpool(road_detector.detect,pixels)
     return {"detections":detections,"detector":RoadDamageDetector.name,"kind":"classical-cv-heuristic","isMock":False,"width":image.width,"height":image.height}
 
 @app.post("/analyze")

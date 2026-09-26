@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, FileSearch, Loader2, Phone, Link2, CreditCard, ScanLine, ShieldAlert, ShieldCheck, Trash2, Scale } from 'lucide-react';
+import { AlertTriangle, Cpu, FileSearch, Loader2, Phone, Link2, CreditCard, ScanLine, ShieldAlert, ShieldCheck, Sparkles, Trash2, Scale } from 'lucide-react';
 import { analyzeText, categoryLabel, maskCard, MAX_INPUT_LENGTH, type AntifraudResult, type Verdict } from '@/lib/antifraud/engine';
 import type { LawCountry } from '@/lib/antifraud/laws';
 
@@ -34,15 +34,20 @@ function RiskGauge({ score, tone }: { score: number; tone: string }) {
   );
 }
 
-export default function AntifraudScanner() {
+export default function AntifraudScanner({ ai }: { ai: { enabled: boolean; model: string } }) {
   const [text, setText] = useState('');
   const [country, setCountry] = useState<LawCountry>('KZ');
   const [result, setResult] = useState<AntifraudResult | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [useAi, setUseAi] = useState(ai.enabled);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Номер текущей проверки: ответ устаревшей проверки (после «Очистить» или новой) не показываем.
+  const run = useRef(0);
 
   useEffect(() => {
     if (timer.current) clearTimeout(timer.current);
+    // Текст или страна изменились — ответ ещё идущей ИИ-проверки уже не относится к ним.
+    run.current += 1;
     setScanning(false);
     setResult(null);
     return () => { if (timer.current) clearTimeout(timer.current); };
@@ -59,19 +64,35 @@ export default function AntifraudScanner() {
     return [...byCategory.entries()];
   }, [result]);
 
-  function scan(value = text) {
+  async function scan(value = text) {
     const trimmed = value.trim();
     if (!trimmed || scanning) return;
+    const id = ++run.current;
     setScanning(true);
     setResult(null);
-    // Анализ мгновенный и локальный; короткая пауза нужна только чтобы показать индикатор сканирования.
-    timer.current = setTimeout(() => {
-      setResult(analyzeText(trimmed, country));
-      setScanning(false);
-    }, 550);
+    if (!useAi) {
+      // Анализ правилами мгновенный и локальный; пауза нужна только чтобы показать индикатор сканирования.
+      timer.current = setTimeout(() => {
+        setResult(analyzeText(trimmed, country));
+        setScanning(false);
+      }, 550);
+      return;
+    }
+    let next: AntifraudResult;
+    try {
+      const res = await fetch('/api/antifraud', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: trimmed, country, useAi: true }) });
+      if (!res.ok) throw new Error(String(res.status));
+      next = (await res.json()) as AntifraudResult;
+    } catch {
+      next = { ...analyzeText(trimmed, country), aiError: 'нет связи с сервером' };
+    }
+    if (id !== run.current) return;
+    setResult(next);
+    setScanning(false);
   }
 
   function reset() {
+    run.current += 1;
     if (timer.current) clearTimeout(timer.current);
     setText('');
     setResult(null);
@@ -110,8 +131,18 @@ export default function AntifraudScanner() {
           </div>
           <div className="scan-meta">
             <span className="subtle">{text.length} / {MAX_INPUT_LENGTH} символов</span>
-            <span className="subtle">Анализ выполняется в браузере — текст никуда не отправляется</span>
+            {ai.enabled && (
+              <label className={`ai-toggle ${useAi ? 'on' : ''}`}>
+                <input type="checkbox" checked={useAi} onChange={event => { setUseAi(event.target.checked); setResult(null); }} />
+                <Sparkles size={14} /> ИИ-анализ Gemini
+              </label>
+            )}
           </div>
+          <p className="subtle scan-privacy">
+            {useAi
+              ? 'Текст отправляется в Google Gemini для второго мнения: номера карт и ИИН маскируются заранее. Не вставляйте пароли и коды из SMS.'
+              : 'Анализ выполняется в браузере локальными правилами — текст никуда не отправляется.'}
+          </p>
           <div className="scan-samples">
             <span className="subtle">Примеры:</span>
             {SAMPLES.map(sample => (
@@ -133,9 +164,21 @@ export default function AntifraudScanner() {
           <div className="verdict-head">
             <RiskGauge score={result.riskScore} tone={style.tone} />
             <div className="verdict-text">
-              <span className={`badge verdict-badge tone-${style.tone}`}><VerdictIcon size={14} /> {result.verdict}</span>
+              <div className="verdict-badges">
+                <span className={`badge verdict-badge tone-${style.tone}`}><VerdictIcon size={14} /> {result.verdict}</span>
+                <span className="badge engine-badge">
+                  {result.engine === 'gemini' ? <><Sparkles size={13} /> Gemini + правила</> : <><Cpu size={13} /> Локальные правила</>}
+                </span>
+              </div>
               <h2>{style.caption}</h2>
               <p>{result.explanation}</p>
+              {result.ai && result.rules && (
+                <div className="opinions">
+                  <span><Sparkles size={13} /> ИИ ({result.ai.model}): <b>{result.ai.verdict}</b> · {result.ai.riskScore}</span>
+                  <span><Cpu size={13} /> Правила: <b>{result.rules.verdict}</b> · {result.rules.riskScore}</span>
+                  {result.ai.verdict !== result.rules.verdict && <em>Оценки разошлись — показана более осторожная</em>}
+                </div>
+              )}
             </div>
           </div>
 
@@ -143,6 +186,10 @@ export default function AntifraudScanner() {
             <strong>Что делать</strong>
             <p>{result.instructions}</p>
           </div>
+
+          {result.aiError && (
+            <p className="subtle panel-note ai-error"><AlertTriangle size={14} /> ИИ-анализ не выполнен: {result.aiError}. Показан вердикт локальных правил.</p>
+          )}
 
           {(result.sanitized || result.truncated) && (
             <p className="subtle panel-note">
@@ -205,7 +252,10 @@ export default function AntifraudScanner() {
           )}
 
           <p className="subtle panel-note">
-            Вердикт получен локальным движком правил (порт QuickCheck) без обращения к ИИ-модели. Подключение модели добавит развёрнутое объяснение, но не требуется для работы проверки. Результат носит справочный характер и не заменяет обращение в банк или полицию.
+            {result.engine === 'gemini'
+              ? `Итог — более осторожная из двух оценок: ИИ-модели Google Gemini (${result.ai?.model ?? ai.model}) и локальных правил (порт QuickCheck). ИИ может ошибаться.`
+              : 'Вердикт получен локальным движком правил (порт QuickCheck) без обращения к ИИ-модели.'}{' '}
+            Результат носит справочный характер и не заменяет обращение в банк или полицию.
           </p>
         </section>
       )}

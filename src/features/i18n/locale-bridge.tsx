@@ -68,7 +68,7 @@ export default function LocaleBridge() {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const apply = () => {
       applyTree(document.body, language);
-      document.title = language === 'kk' ? 'SU AQTAU — қалалық қауіпсіздік' : 'SU AQTAU — городская безопасность';
+      document.title = language === 'kk' ? 'DigitalAqtau — Ақтаудың цифрлық қаласы' : 'DigitalAqtau — цифровой город Актау';
     };
     const schedule = () => {
       if (timer) return;

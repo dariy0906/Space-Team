@@ -18,6 +18,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ nam
   const incident = media.incident;
   if (user.role === 'WORKER' && incident.assignedWorkerId !== user.id)
     return new NextResponse('Forbidden', { status: 403 });
+  // Кадры городских камер видят только сотрудники, даже если кадр прикреплён к обращению жителя.
   if (user.role === 'RESIDENT' && (incident.reporterId !== user.id || media.stage === CAMERA_FRAME_STAGE))
     return new NextResponse('Forbidden', { status: 403 });
   try {

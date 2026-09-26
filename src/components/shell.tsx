@@ -174,8 +174,8 @@ export default function Shell({
             <ShieldCheck size={24} />
           </span>
           <div>
-            <strong>SU AQTAU</strong>
-            <small>SAFE CITY SYSTEM</small>
+            <strong>DigitalAqtau</strong>
+            <small>SMART CITY PLATFORM</small>
           </div>
           <button
             className="mobile-only icon-button ml-auto"

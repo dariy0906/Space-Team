@@ -1,4 +1,4 @@
-# SU AQTAU — Smart City Aktau
+# DigitalAqtau — Smart City Aktau
 
 Единая цифровая система городского мониторинга и реагирования для Актау.
 Сквозной сценарий: **обращение жителя → оператор → назначение работника → маршрут → работа с
@@ -81,6 +81,20 @@ Seed-данные, не реальные детекторы (помечены DE
 
 Пробки (traffic), общественный транспорт и ETA автобуса, оценка ветра по видео, навигация жителя,
 push-уведомления, offline-PWA, APK (Capacitor), реальные детекторы fire/smoke/water.
+
+## Антифрод-помощник
+
+Проверка SMS, писем и договоров (`/antifraud`). Локальные правила (порт QuickCheck) работают всегда и
+без сети. Если на сервере задан `GEMINI_API_KEY`, текст дополнительно оценивает **Google Gemini**
+(`GEMINI_MODEL`, по умолчанию `gemini-3.5-flash-lite`, запасная — `gemini-3.1-flash-lite`):
+
+- итог — более осторожная из двух оценок; в интерфейсе видны обе и подпись «Gemini + правила»;
+- ключ используется только на сервере (`/api/antifraud`), в браузер не попадает;
+- номера карт и ИИН маскируются до отправки, текст передаётся модели как данные (защита от
+  подмены инструкций); статья закона выбирается только из списка УК/КоАП выбранной страны;
+- не больше 10 ИИ-проверок в минуту на пользователя; при сбое API показывается вердикт правил
+  и причина;
+- житель может выключить «ИИ-анализ Gemini» — тогда текст не покидает браузер.
 
 ## Умный город: вода, дороги, воздух
 
@@ -175,7 +189,7 @@ npx tsc --noEmit
 npm run build
 
 # backend (нужна изолированная БД, имя содержит aqtau_test)
-DATABASE_URL=<...aqtau_test> DEMO_MODE=true node_modules/.bin/tsx --test tests/workflow.test.ts tests/worker-queue.test.ts tests/city.test.ts
+DATABASE_URL=<...aqtau_test> DEMO_MODE=true node_modules/.bin/tsx --test tests/workflow.test.ts tests/worker-queue.test.ts
 
 # браузерные E2E (Playwright + Chromium), приложение должно быть запущено
 DATABASE_URL=<..._test> E2E_URL=http://localhost:3000 CHROMIUM_PATH=/usr/bin/chromium node tests/browser-workflow.mjs

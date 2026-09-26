@@ -10,19 +10,32 @@ export default function Realtime() {
     const source = new EventSource('/api/events');
     let pending = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let busySince = 0;
     const flush = () => {
       timer = undefined;
       if (!pending) return;
       const editing = document.activeElement?.matches('input,textarea,select,[contenteditable="true"]');
+      // Кнопка отправки может остаться заблокированной, если клиентский переход после действия
+      // застрял. Дольше 8 секунд такую «занятость» не ждём — обновление покажет данные с сервера.
+      const submitting = document.querySelector('button[type="submit"]:disabled');
+      if (submitting) busySince ||= Date.now();
+      else busySince = 0;
       if (
         document.visibilityState !== 'visible' ||
         editing ||
-        document.querySelector('button[type="submit"]:disabled')
+        (submitting && Date.now() - busySince < 8000)
       ) {
         timer = setTimeout(flush, 1000);
         return;
       }
       pending = false;
+      // Зависший переход router.refresh не снимает: сервер уже всё сохранил, поэтому перезагружаем
+      // страницу целиком. На /admin не перезагружаем — это может отменить redirect server action.
+      if (submitting && !location.pathname.startsWith('/admin')) {
+        window.location.reload();
+        return;
+      }
+      busySince = 0;
       router.refresh();
     };
     const schedule = () => {

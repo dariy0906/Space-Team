@@ -3,7 +3,7 @@
 // перерисовки всей страницы после действия, которая в этом окружении иногда не завершалась.
 import { z } from 'zod';
 import { currentUser } from '@/lib/auth';
-import { sameOrigin } from '@/lib/cameras';
+import { sameOrigin } from '@/lib/http';
 import { db } from '@/lib/db';
 import { analyzeRoadFrame, frameKind, recordRoadDetections, saveFrame, type RoadAnalyzeResult } from '@/lib/road';
 
